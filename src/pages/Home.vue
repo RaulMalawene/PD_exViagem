@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import bookingService from '../services/bookingService'
 
 import Text from '../components/Text.vue'
@@ -8,13 +8,34 @@ import Search from '../components/Search.vue'
 import StatiscSimple from '../components/StatiscSimple.vue'
 import TableBase from '../components/TableBase.vue'
 import IconText from '../components/IconText.vue'
+import DateFilter from '../components/filters/DateFilter.vue'
+import FilterDropDown from '../components/filters/FilterDropDown.vue'
+import CleanFilter from '../components/CleanFilter.vue'
 
 const loading = ref(true)
 const bookings = ref([])
 const pagination = ref({ current_page: 1, last_page: 1, total: 0 })
 const search = ref('')
 
+const filters = ref({ status: '', payment_status: '', date_from: '', date_to: '' })
+
 const stats = ref({ total: null, pending: null, confirmed: null, cancelled: null })
+
+const statusOptions = [
+  { label: 'Pendente', value: 'pending' },
+  { label: 'Confirmada', value: 'confirmed' },
+  { label: 'Cancelada', value: 'cancelled' },
+]
+
+const paymentOptions = [
+  { label: 'Pendente', value: 'pending' },
+  { label: 'Pago', value: 'paid' },
+  { label: 'Reembolsado', value: 'refunded' },
+]
+
+const hasFilters = computed(() =>
+  !!(filters.value.status || filters.value.payment_status || filters.value.date_from || filters.value.date_to)
+)
 
 const headers = ['Bilhete', 'Lugar', 'Passageiro', 'Data viagem', 'Rota', 'Estado', 'Pagamento']
 
@@ -31,11 +52,23 @@ const rows = computed(() =>
   }))
 )
 
+function buildParams(page = 1) {
+  return {
+    page,
+    per_page: 15,
+    ...(search.value ? { passenger: search.value } : {}),
+    ...(filters.value.status ? { status: filters.value.status } : {}),
+    ...(filters.value.payment_status ? { payment_status: filters.value.payment_status } : {}),
+    ...(filters.value.date_from ? { date_from: filters.value.date_from } : {}),
+    ...(filters.value.date_to ? { date_to: filters.value.date_to } : {}),
+  }
+}
+
 async function fetchData(page = 1) {
   loading.value = true
   try {
     const [all, pending, confirmed, cancelled] = await Promise.all([
-      bookingService.list({ page, per_page: 15, ...(search.value ? { passenger: search.value } : {}) }),
+      bookingService.list(buildParams(page)),
       bookingService.list({ status: 'pending', per_page: 1 }),
       bookingService.list({ status: 'confirmed', per_page: 1 }),
       bookingService.list({ status: 'cancelled', per_page: 1 }),
@@ -83,6 +116,16 @@ function onSearch(val) {
   searchTimer = setTimeout(() => fetchData(1), 400)
 }
 
+let filterTimer = null
+watch(filters, () => {
+  clearTimeout(filterTimer)
+  filterTimer = setTimeout(() => fetchData(1), 300)
+}, { deep: true })
+
+function clearFilters() {
+  filters.value = { status: '', payment_status: '', date_from: '', date_to: '' }
+}
+
 onMounted(() => fetchData())
 </script>
 
@@ -108,6 +151,41 @@ onMounted(() => fetchData())
             color="#8B9B1A"
             background="#A3206A"
           />
+        </div>
+      </div>
+
+      <div class="filters">
+        <div class="dates">
+          <DateFilter
+            txt="Data Inicial"
+            icon="fi fi-sr-calendar"
+            color="#A3206A"
+            v-model="filters.date_from"
+          />
+          <DateFilter
+            txt="Data Final"
+            icon="fi fi-sr-calendar"
+            color="#A3206A"
+            v-model="filters.date_to"
+          />
+        </div>
+
+        <div class="dropdowns">
+          <FilterDropDown
+            txt="Estado da reserva"
+            icon="fi fi-sr-ticket"
+            color="#A3206A"
+            :options="statusOptions"
+            v-model="filters.status"
+          />
+          <FilterDropDown
+            txt="Estado de pagamento"
+            icon="fi fi-sr-sack-dollar"
+            color="#A3206A"
+            :options="paymentOptions"
+            v-model="filters.payment_status"
+          />
+          <CleanFilter v-if="hasFilters" @click="clearFilters" />
         </div>
       </div>
 
@@ -212,6 +290,33 @@ header {
   gap: 10px;
   flex-shrink: 0;
   height: 100%;
+}
+
+.filters {
+  margin-top: 32px;
+  min-height: 60px;
+  height: auto;
+  width: 100%;
+  display: flex;
+  gap: clamp(12px, 2.5vw, 60px);
+  flex-wrap: wrap;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
+.dates {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.dropdowns {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: flex-end;
 }
 
 .Statistcss {
@@ -345,6 +450,7 @@ header {
 
 @media (min-width: 1024px) and (max-width: 1279px) {
   .filterData { margin-top: 24px; }
+  .filters { margin-top: 20px; }
   .Statistcss { margin-top: 24px; }
   .table { margin-top: 24px; padding: 24px; }
 }
