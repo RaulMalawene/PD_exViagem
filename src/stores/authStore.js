@@ -47,6 +47,13 @@ export const useAuthStore = defineStore('auth', {
       return res
     },
 
+    async updateMe(data) {
+      const res = await authService.updateProfile(data)
+      this.user = res.data
+      localStorage.setItem('user', JSON.stringify(res.data))
+      return res
+    },
+
     logout() {
       this.user = null
       this.token = null
