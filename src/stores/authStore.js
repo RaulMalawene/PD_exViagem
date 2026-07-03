@@ -25,7 +25,7 @@ export const useAuthStore = defineStore('auth', {
 
   actions: {
     async login(data) {
-      // API retorna { user: {...}, token: "..." } (sem wrapper data)
+ 
       const res = await authService.login(data)
 
       this.token = res.token
@@ -38,7 +38,7 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async getMe() {
-      // API retorna { data: { ...user } }
+
       const res = await authService.me()
 
       this.user = res.data
