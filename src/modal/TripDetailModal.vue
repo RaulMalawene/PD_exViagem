@@ -1,7 +1,6 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import bookingService from '../services/bookingService'
-import Text from '../components/Text.vue'
 import DataCard from '../components/DataCard.vue'
 import Badge from '../components/Badge.vue'
 
@@ -17,7 +16,8 @@ const emit = defineEmits(['close'])
 const loadingBookings = ref(false)
 const bookings = ref([])
 const pagination = ref({ current_page: 1, last_page: 1, total: 0 })
-const activeView = ref('manifest')
+const search = ref('')
+const includeCancelled = ref(false)
 
 const occupancyPct = computed(() => {
   const cap = props.trip.vehicle?.capacity
@@ -35,25 +35,27 @@ const occupancyColor = computed(() => {
 })
 
 const statusLabel = computed(() => {
-  const map = { scheduled: 'Agendada', in_progress: 'Em curso', completed: 'Concluída', cancelled: 'Cancelada' }
+  const map = {
+    scheduled: 'Agendada',
+    boarding: 'Em embarque',
+    in_progress: 'Em curso',
+    completed: 'Concluída',
+    cancelled: 'Cancelada',
+    delayed: 'Com atraso',
+  }
   return map[props.trip.status] ?? props.trip.status
 })
 
-async function fetchBookings(page = 1) {
-  loadingBookings.value = true
-  try {
-    const res = await bookingService.list({ trip_id: props.trip.id, page, per_page: 12 })
-    bookings.value = res.data
-    pagination.value = res.meta
-  } finally {
-    loadingBookings.value = false
-  }
-}
-
-function goToPage(page) {
-  if (page < 1 || page > pagination.value.last_page) return
-  fetchBookings(page)
-}
+const filteredBookings = computed(() => {
+  if (!search.value.trim()) return bookings.value
+  const q = search.value.toLowerCase()
+  return bookings.value.filter(
+    (b) =>
+      b.passenger?.name?.toLowerCase().includes(q) ||
+      b.ticket_number?.toLowerCase().includes(q) ||
+      b.seat_number?.toLowerCase().includes(q)
+  )
+})
 
 const pageNumbers = computed(() => {
   const current = pagination.value.current_page
@@ -68,185 +70,216 @@ const pageNumbers = computed(() => {
   return range
 })
 
+async function fetchBookings(page = 1) {
+  loadingBookings.value = true
+  try {
+    const res = await bookingService.listByTrip(props.trip.id, {
+      page,
+      per_page: 12,
+      include_cancelled: includeCancelled.value,
+    })
+    bookings.value = res.data
+    pagination.value = res.meta
+  } finally {
+    loadingBookings.value = false
+  }
+}
+
+function goToPage(page) {
+  if (page < 1 || page > pagination.value.last_page) return
+  fetchBookings(page)
+}
+
+function toggleIncludeCancelled() {
+  includeCancelled.value = !includeCancelled.value
+  fetchBookings(1)
+}
+
 onMounted(() => fetchBookings())
 </script>
 
+
 <template>
-  <Teleport to="body">
-    <Transition name="overlay">
-      <div class="modalOverlay" @click.self="emit('close')">
-        <Transition name="modal" appear>
-          <div class="TripDetailWrapper">
 
-            <!-- LEFT — informações da viagem -->
-            <div class="Left">
-              <div class="TripContent">
+  <Transition name="overlay">
+    <div class="modalOverlay" @click.self="emit('close')">
+      <Transition name="modal" appear>
+        <div class="modalCard">
 
-                <!-- Cabeçalho da viagem -->
-                <div class="TripHeader">
-                  <div class="RouteBadge">
-                    <i class="fi fi-sr-route" />
-                    <Text :txt="trip.route?.name ?? '--'" color="fff" weight="600" size="16px" />
-                  </div>
-                  <button class="closeBtn" @click="emit('close')">
-                    <i class="fi fi-br-cross" />
-                  </button>
+          <!-- HEADER-->
+          <div class="modalHeader">
+            <div class="headerLeft">
+              <i class="fi fi-rs-route headerIcon" />
+              <span class="headerRoute">{{ trip.route?.name ?? '--' }}</span>
+              <div class="headerDivider" />
+              <i class="fi fi-rs-calendar headerIcon" />
+              <span class="headerMeta">{{ trip.departure_date }}</span>
+              <div class="headerDivider" />
+              <i class="fi fi-rs-clock headerIcon" />
+              <span class="headerMeta">{{ trip.departure_time }}</span>
+            </div>
+            <div class="headerRight">
+              <span class="statusBadge">{{ statusLabel }}</span>
+              <button class="closeBtn" @click="emit('close')">
+                <i class="fi fi-br-cross" />
+              </button>
+            </div>
+          </div>
+
+          <!-- BODY -->
+
+          <div class="modalBody">
+
+            <!-- COLUNA ESQUERDA -->
+            <div class="leftPanel">
+
+              <div class="statsGrid">
+                <DataCard title="Confirmados" :value="String(trip.confirmed_count ?? 0)" icon="fi fi-sr-check-circle" />
+                <DataCard title="Pendentes" :value="String(trip.pending_count ?? 0)" icon="fi fi-sr-clock" />
+                <DataCard title="Cancelados" :value="String(trip.cancelled_count ?? 0)" icon="fi fi-sr-cross-circle" />
+                <DataCard v-if="trip.vehicle?.capacity" title="Capacidade" :value="String(trip.vehicle.capacity)"
+                  icon="fi fi-sr-seat-airline" />
+              </div>
+
+              <div v-if="occupancyPct !== null" class="occupancyBar">
+                <div class="occupancyLabel">
+                  <span>Ocupação</span>
+                  <span :style="{ color: occupancyColor }" class="occupancyPct">{{ occupancyPct }}%</span>
+                </div>
+                <div class="barTrack">
+                  <div class="barFill" :style="{ width: occupancyPct + '%', background: occupancyColor }" />
+                </div>
+              </div>
+
+              <div class="infoRow">
+                <div class="infoRowHeader">
+                  <i class="fi fi-rs-bus infoRowIcon" />
+                  <span class="infoLabel">Veículo</span>
+                </div>
+                <span class="infoValue">
+                  {{ trip.vehicle ? `${trip.vehicle.brand} ${trip.vehicle.model} · ${trip.vehicle.plate}` : '--' }}
+                </span>
+              </div>
+
+              <div class="infoRow">
+                <div class="infoRowHeader">
+                  <i class="fi fi-rs-steering-wheel infoRowIcon" />
+                  <span class="infoLabel">Motorista</span>
+                </div>
+                <span class="infoValue">{{ trip.driver?.name ?? '--' }}</span>
+              </div>
+
+              <div class="actions">
+                <button class="actionBtn green">
+                  <i class="fi fi-rs-file-pdf" />
+                  Gerar manifesto PDF
+                </button>
+                <button class="actionBtn magenta">
+                  <i class="fi fi-rs-pencil" />
+                  Editar viagem
+                </button>
+                <button class="actionBtn red">
+                  <i class="fi fi-rs-ban" />
+                  Cancelar viagem
+                </button>
+              </div>
+
+            </div>
+
+          <!-- DIVIDER  -->
+          <div class="verticalDivider" />
+          <div class="rightPanel">
+
+            <div class="manifestTop">
+              <div class="manifestTitleRow">
+                <span class="manifestTitle">Manifesto de passageiros</span>
+                <span class="manifestCount">{{ pagination.total }}</span>
+                <span class="manifestCountLabel">passageiros</span>
+              </div>
+
+              <div class="manifestSearchCol">
+                <div class="manifestSearch">
+                  <i class="fi fi-rs-search searchIcon" />
+                  <input v-model="search" type="text" placeholder="Pesquisar passageiro..." class="searchInput" />
                 </div>
 
-                <!-- Cards de stats -->
-                <div class="Cards">
-                  <DataCard
-                    title="Confirmados"
-                    :value="String(trip.confirmed_count ?? 0)"
-                    icon="fi fi-sr-check-circle"
-                  />
-                  <DataCard
-                    title="Pendentes"
-                    :value="String(trip.pending_count ?? 0)"
-                    icon="fi fi-sr-clock"
-                  />
-                  <DataCard
-                    title="Cancelados"
-                    :value="String(trip.cancelled_count ?? 0)"
-                    icon="fi fi-sr-cross-circle"
-                  />
-                  <DataCard
-                    v-if="trip.vehicle?.capacity"
-                    title="Capacidade"
-                    :value="String(trip.vehicle.capacity)"
-                    icon="fi fi-sr-seat-airline"
-                  />
-                </div>
-
-                <!-- Barra de ocupação -->
-                <div v-if="occupancyPct !== null" class="OccupancyBar">
-                  <div class="occupancyLabel">
-                    <span>Ocupação</span>
-                    <span :style="{ color: occupancyColor }" class="occupancyPct">{{ occupancyPct }}%</span>
-                  </div>
-                  <div class="barTrack">
-                    <div
-                      class="barFill"
-                      :style="{ width: occupancyPct + '%', background: occupancyColor }"
-                    />
-                  </div>
-                </div>
-
-                <!-- Detalhes da viagem -->
-                <div class="InfoGrid">
-                  <div class="InfoItem">
-                    <i class="fi fi-rs-calendar infoIcon" />
-                    <div class="infoBody">
-                      <span class="infoLabel">Data</span>
-                      <span class="infoValue">{{ trip.departure_date }}</span>
-                    </div>
-                  </div>
-                  <div class="InfoItem">
-                    <i class="fi fi-rs-clock infoIcon" />
-                    <div class="infoBody">
-                      <span class="infoLabel">Partida</span>
-                      <span class="infoValue">{{ trip.departure_time }}</span>
-                    </div>
-                  </div>
-                  <div class="InfoItem">
-                    <i class="fi fi-rs-bus infoIcon" />
-                    <div class="infoBody">
-                      <span class="infoLabel">Veículo</span>
-                      <span class="infoValue">{{ trip.vehicle ? `${trip.vehicle.brand} ${trip.vehicle.model} · ${trip.vehicle.plate}` : '--' }}</span>
-                    </div>
-                  </div>
-                  <div class="InfoItem">
-                    <i class="fi fi-rs-steering-wheel infoIcon" />
-                    <div class="infoBody">
-                      <span class="infoLabel">Motorista</span>
-                      <span class="infoValue">{{ trip.driver?.name ?? '--' }}</span>
-                    </div>
-                  </div>
-                  <div class="InfoItem">
-                    <i class="fi fi-rs-signal-alt infoIcon" />
-                    <div class="infoBody">
-                      <span class="infoLabel">Estado</span>
-                      <span class="infoValue">{{ statusLabel }}</span>
-                    </div>
-                  </div>
-                </div>
-
+                <label class="cancelledToggle">
+                  <input type="checkbox" :checked="includeCancelled" @change="toggleIncludeCancelled" />
+                  Mostrar cancelados
+                </label>
               </div>
             </div>
 
-            <!-- RIGHT — manifesto de passageiros -->
-            <div class="Right">
-              <div class="ManifestHeader">
-                <h3 class="panelTitle">Manifesto de passageiros</h3>
-                <span class="manifestTotal">{{ pagination.total }} passageiro{{ pagination.total !== 1 ? 's' : '' }}</span>
+            <div class="manifestBody">
+              <div v-if="loadingBookings" class="stateBox">
+                <div class="spinner" />
               </div>
 
-              <div class="ManifestBody">
-                <div v-if="loadingBookings" class="manifestLoader">
-                  <div class="loaderSpinner" />
-                </div>
+              <div v-else-if="bookings.length === 0" class="stateBox">
+                <i class="fi fi-sr-users emptyIcon" />
+                <span class="emptyText">Sem passageiros registados</span>
+              </div>
 
-                <div v-else-if="bookings.length === 0" class="manifestEmpty">
-                  <i class="fi fi-sr-users emptyIcon" />
-                  <span>Sem passageiros registados</span>
-                </div>
+              <div v-else-if="filteredBookings.length === 0" class="stateBox">
+                <i class="fi fi-sr-search emptyIcon" />
+                <span class="emptyText">Sem resultados para "{{ search }}"</span>
+              </div>
 
-                <template v-else>
-                  <div class="ManifestList">
-                    <div
-                      v-for="b in bookings"
-                      :key="b.id"
-                      class="ManifestRow"
-                    >
-                      <div class="seatBadge">{{ b.seat_number ?? '--' }}</div>
-                      <div class="passengerInfo">
-                        <span class="passengerName">{{ b.passenger?.name ?? '--' }}</span>
-                        <span class="ticketNum">{{ b.ticket_number }}</span>
-                      </div>
-                      <div class="rowBadges">
-                        <Badge :status="b.status" />
-                        <Badge :status="b.payment_status" />
-                      </div>
+              <template v-else>
+                <div class="manifestList">
+                  <div v-for="b in filteredBookings" :key="b.id" class="manifestRow" :class="{ cancelledRow: b.status === 'cancelled' }">
+                    <div class="seatBadge">{{ b.seat_number ?? '--' }}</div>
+                    <div class="passengerInfo">
+                      <span class="passengerName">{{ b.passenger?.name ?? '--' }}</span>
+                      <span class="ticketNum">{{ b.ticket_number }}</span>
+                    </div>
+                    <div class="rowBadges">
+                      <Badge v-if="b.status === 'cancelled'" status="cancelled" />
+                      <Badge :status="b.payment_status" />
                     </div>
                   </div>
+                </div>
 
-                  <!-- Paginação -->
-                  <div class="manifestPagination" v-if="pagination.last_page > 1">
-                    <button class="pageBtn" :disabled="pagination.current_page === 1"
-                      @click="goToPage(pagination.current_page - 1)">
-                      <i class="fi fi-sr-angle-left" />
+                <div class="manifestPagination" v-if="pagination.last_page > 1 && !search">
+                  <button class="pageBtn" :disabled="pagination.current_page === 1"
+                    @click="goToPage(pagination.current_page - 1)">
+                    <i class="fi fi-sr-angle-left" />
+                  </button>
+
+                  <template v-for="(page, i) in pageNumbers" :key="i">
+                    <span v-if="page === '...'" class="pageEllipsis">&hellip;</span>
+                    <button v-else class="pageNumBtn" :class="{ active: page === pagination.current_page }"
+                      @click="goToPage(page)">
+                      {{ page }}
                     </button>
+                  </template>
 
-                    <template v-for="(page, i) in pageNumbers" :key="i">
-                      <span v-if="page === '...'" class="pageEllipsis">&hellip;</span>
-                      <button v-else class="pageNumBtn"
-                        :class="{ active: page === pagination.current_page }"
-                        @click="goToPage(page)">
-                        {{ page }}
-                      </button>
-                    </template>
+                  <button class="pageBtn" :disabled="pagination.current_page === pagination.last_page"
+                    @click="goToPage(pagination.current_page + 1)">
+                    <i class="fi fi-sr-angle-right" />
+                  </button>
 
-                    <button class="pageBtn" :disabled="pagination.current_page === pagination.last_page"
-                      @click="goToPage(pagination.current_page + 1)">
-                      <i class="fi fi-sr-angle-right" />
-                    </button>
-                  </div>
-                </template>
-              </div>
+                  <span class="pageInfo">{{ pagination.total }} passageiros</span>
+                </div>
+              </template>
             </div>
 
           </div>
-        </Transition>
-      </div>
-    </Transition>
-  </Teleport>
+   </div>
+
+        </div>
+      </Transition>
+    </div>
+  </Transition>
 </template>
+
+
 
 <style scoped>
 .modalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   z-index: 5000;
@@ -256,104 +289,127 @@ onMounted(() => fetchBookings())
   padding: 24px;
 }
 
-.TripDetailWrapper {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
+.modalCard {
   width: 100%;
-  max-width: 1100px;
+  max-width: 1080px;
   max-height: calc(100vh - 80px);
-}
-
-.Left {
-  flex: 1 1 auto;
-  min-width: 320px;
-  max-width: 520px;
   background: white;
-  border-radius: 12px;
-  padding: clamp(22px, 3vw, 48px);
-  display: flex;
-  flex-direction: column;
+  border-radius: 5px;
   overflow: hidden;
-  max-height: calc(100vh - 80px);
-}
-
-.Right {
-  flex: 0 0 clamp(300px, 36vw, 460px);
-  background: white;
-  border-radius: 12px;
-  padding: clamp(18px, 2.5vw, 36px);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-height: calc(100vh - 80px);
-  overflow: hidden;
 }
 
-.TripContent {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  height: 100%;
-  overflow-y: auto;
-  padding-right: 2px;
-  scrollbar-width: thin;
-  scrollbar-color: #e0e0e0 transparent;
-}
-
-.TripHeader {
+.modalHeader {
+  background: #922877;
+  padding: 16px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-}
-
-.RouteBadge {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #A3206A;
-  border-radius: 8px;
-  padding: 10px 18px;
-  flex: 1;
-  min-width: 0;
-}
-
-.RouteBadge i {
-  color: white;
-  font-size: 16px;
-  position: relative;
-  top: 1px;
+  gap: 16px;
   flex-shrink: 0;
 }
 
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: 1;
+}
+
+.headerIcon {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
+  position: relative;
+  top: 1px;
+}
+
+.headerRoute {
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerMeta {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.headerDivider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.statusBadge {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
 .closeBtn {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: none;
-  background: #f0f0f0;
+  background: rgba(255, 255, 255, 0.15);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  color: #555;
+  color: #fff;
+  font-size: 12px;
   transition: background 0.15s;
-  flex-shrink: 0;
 }
 
 .closeBtn:hover {
-  background: #e0e0e0;
+  background: rgba(255, 255, 255, 0.28);
 }
 
-.Cards {
+
+.modalBody {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.leftPanel {
+  width: 45%;
+  flex-shrink: 0;
+  padding: 24px;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #e0e0e0 transparent;
+}
+
+.statsGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
-.OccupancyBar {
+.occupancyBar {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -363,8 +419,7 @@ onMounted(() => fetchBookings())
   display: flex;
   justify-content: space-between;
   font-size: 13px;
-  color: #666;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .occupancyPct {
@@ -372,7 +427,7 @@ onMounted(() => fetchBookings())
 }
 
 .barTrack {
-  height: 8px;
+  height: 7px;
   background: #f0f0f0;
   border-radius: 99px;
   overflow: hidden;
@@ -384,97 +439,232 @@ onMounted(() => fetchBookings())
   transition: width 0.4s ease;
 }
 
-.InfoGrid {
+.infoRows {
+  margin-top: 16px;
+  margin-bottom: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.InfoItem {
+.infoRowHeader {
+  padding-bottom: 2px;
+  padding-top: 12px;
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 5px;
 }
 
-.infoIcon {
+.infoRowIcon {
   color: #A3206A;
-  font-size: 14px;
-  width: 18px;
-  flex-shrink: 0;
+  font-size: 13px;
   position: relative;
-  top: 2px;
+  top: 1px;
 }
 
-.infoBody {
+.infoRow {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
 .infoLabel {
-  font-size: 11px;
-  color: #aaa;
-  font-weight: 500;
+  font-size: 13px;
+  color: black;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
 }
 
 .infoValue {
-  font-size: 14px;
+  font-size: 13px;
   color: #222;
   font-weight: 500;
 }
 
-/* RIGHT */
-.ManifestHeader {
+.actions {
+  padding-top: 12px;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
 }
 
-.panelTitle {
-  font-size: 18px;
-  font-weight: 700;
-  color: #222;
-  margin: 0;
-}
-
-.manifestTotal {
+.actionBtn {
+  width: 100%;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
   font-size: 13px;
-  color: #999;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.15s;
+  color: #fff;
 }
 
-.ManifestBody {
+.actionBtn:hover {
+  opacity: 0.88;
+}
+
+.actionBtn i {
+  font-size: 13px;
+  position: relative;
+  top: 1px;
+}
+
+.actionBtn.green {
+  background: #8B9B1A;
+}
+
+.actionBtn.magenta {
+  background: #922877;
+}
+
+.actionBtn.red {
+  background: #d33939;
+}
+
+.verticalDivider {
+  width: 1px;
+  background: #e8e8e8;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.verticalDivider {
+  width: 1px;
+  background: #e8e8e8;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+/* COLUNA DIREITA */
+.rightPanel {
   flex: 1;
-  min-height: 0;
+  width: 55%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.manifestLoader,
-.manifestEmpty {
+.manifestTop {
+  padding: 18px 24px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.manifestTitleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.manifestTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #222;
+}
+
+.manifestCount {
+  font-size: 17px;
+  font-weight: 700;
+  color: #222;
+}
+
+.manifestCountLabel {
+  font-size: 13px;
+  color: #999;
+}
+
+.manifestSearchCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cancelledToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cancelledToggle input {
+  accent-color: #A3206A;
+  cursor: pointer;
+}
+
+.manifestSearch {
+  position: relative;
+  flex-shrink: 0;
+}
+
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #bbb;
+  font-size: 13px;
+}
+
+.searchInput {
+  height: 36px;
+  width: 220px;
+  border: 1.5px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 0 12px 0 32px;
+  font-size: 13px;
+  color: #333;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: Helvetica, sans-serif;
+}
+
+.searchInput:focus {
+  border-color: #A3206A;
+}
+
+.searchInput::placeholder {
+  color: #bbb;
+}
+
+.manifestBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 14px 24px 16px;
+  gap: 8px;
+}
+
+.stateBox {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #bbb;
-  font-size: 14px;
 }
 
-.emptyIcon {
-  font-size: 40px;
-  color: #A3206A;
-  opacity: 0.3;
-}
-
-.loaderSpinner {
-  width: 36px;
-  height: 36px;
+.spinner {
+  width: 34px;
+  height: 34px;
   border: 3px solid #f0f0f0;
   border-top-color: #A3206A;
   border-radius: 50%;
@@ -482,10 +672,23 @@ onMounted(() => fetchBookings())
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.ManifestList {
+.emptyIcon {
+  font-size: 38px;
+  color: #A3206A;
+  opacity: 0.3;
+}
+
+.emptyText {
+  font-size: 14px;
+  color: #aaa;
+}
+
+.manifestList {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -497,28 +700,27 @@ onMounted(() => fetchBookings())
   scrollbar-color: #e0e0e0 transparent;
 }
 
-.ManifestRow {
+.manifestRow {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   background: #fafafa;
   border-radius: 8px;
   border: 1px solid #f0f0f0;
   transition: all 0.15s;
 }
 
-.ManifestRow:hover {
-  background: #f5f0f3;
-  border-color: rgba(163, 32, 106, 0.15);
+.manifestRow.cancelledRow {
+  opacity: 0.55;
 }
 
 .seatBadge {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 8px;
-  background: rgba(163, 32, 106, 0.08);
-  color: #A3206A;
+  background: #922877;
+  color: #fff;
   font-size: 13px;
   font-weight: 700;
   display: flex;
@@ -545,8 +747,8 @@ onMounted(() => fetchBookings())
 }
 
 .ticketNum {
-  font-size: 11px;
-  color: #aaa;
+  font-size: 14px;
+  color: #bbb;
   font-family: 'Courier New', monospace;
 }
 
@@ -556,19 +758,19 @@ onMounted(() => fetchBookings())
   flex-shrink: 0;
 }
 
-/* Paginação */
+/* PAGINACAO */
 .manifestPagination {
   display: flex;
   align-items: center;
   gap: 5px;
   flex-wrap: wrap;
   flex-shrink: 0;
-  padding-top: 12px;
+  padding-top: 4px;
 }
 
 .pageBtn {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border: none;
   background: #f0f0f0;
   border-radius: 6px;
@@ -591,8 +793,8 @@ onMounted(() => fetchBookings())
 }
 
 .pageNumBtn {
-  min-width: 28px;
-  height: 28px;
+  min-width: 30px;
+  height: 30px;
   padding: 0 6px;
   border: none;
   background: #f0f0f0;
@@ -619,7 +821,13 @@ onMounted(() => fetchBookings())
   padding: 0 3px;
 }
 
-/* Transitions */
+.pageInfo {
+  font-size: 12px;
+  color: #999;
+  margin-left: 8px;
+}
+
+/* TRANSITIONS */
 .overlay-enter-active,
 .overlay-leave-active {
   transition: opacity 0.2s ease;
@@ -638,6 +846,6 @@ onMounted(() => fetchBookings())
 .modal-enter-from,
 .modal-leave-to {
   opacity: 0;
-  transform: translateY(16px) scale(0.98);
+  transform: translateY(14px) scale(0.98);
 }
 </style>
