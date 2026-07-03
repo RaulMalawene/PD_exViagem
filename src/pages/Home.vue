@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import tripService from '../services/tripService'
 import bookingService from '../services/bookingService'
 
 import Text from '../components/Text.vue'
@@ -11,44 +12,42 @@ import IconText from '../components/IconText.vue'
 import DateFilter from '../components/filters/DateFilter.vue'
 import FilterDropDown from '../components/filters/FilterDropDown.vue'
 import CleanFilter from '../components/CleanFilter.vue'
+import TripDetailModal from '../modal/TripDetailModal.vue'
 
 const loading = ref(true)
-const bookings = ref([])
+const trips = ref([])
 const pagination = ref({ current_page: 1, last_page: 1, total: 0 })
 const search = ref('')
+const selectedTrip = ref(null)
 
-const filters = ref({ status: '', payment_status: '', date_from: '', date_to: '' })
+const filters = ref({ status: '', date_from: '', date_to: '', route_id: '' })
 
 const stats = ref({ total: null, pending: null, confirmed: null, cancelled: null })
 
-const statusOptions = [
-  { label: 'Pendente', value: 'pending' },
-  { label: 'Confirmada', value: 'confirmed' },
+const tripStatusOptions = [
+  { label: 'Agendada', value: 'scheduled' },
+  { label: 'Em curso', value: 'in_progress' },
+  { label: 'Concluída', value: 'completed' },
   { label: 'Cancelada', value: 'cancelled' },
 ]
 
-const paymentOptions = [
-  { label: 'Pendente', value: 'pending' },
-  { label: 'Pago', value: 'paid' },
-  { label: 'Reembolsado', value: 'refunded' },
-]
-
 const hasFilters = computed(() =>
-  !!(filters.value.status || filters.value.payment_status || filters.value.date_from || filters.value.date_to)
+  !!(filters.value.status || filters.value.date_from || filters.value.date_to)
 )
 
-const headers = ['Bilhete', 'Lugar', 'Passageiro', 'Data viagem', 'Rota', 'Estado', 'Pagamento']
+const headers = ['Rota', 'Data', 'Partida', 'Veículo', 'Motorista', 'Confirmados', 'Pendentes', 'Capacidade']
 
 const rows = computed(() =>
-  bookings.value.map((b) => ({
-    id: b.id,
-    ticket: b.ticket_number,
-    seat: b.seat_number,
-    passenger: b.passenger?.name ?? '--',
-    date: b.trip?.departure_date ?? '--',
-    route: b.trip?.route?.name ?? '--',
-    status: b.status,
-    payment: b.payment_status,
+  trips.value.map((t) => ({
+    id: t.id,
+    route: t.route?.name ?? '--',
+    date: t.departure_date,
+    time: t.departure_time,
+    vehicle: t.vehicle ? `${t.vehicle.brand} ${t.vehicle.model}` : '--',
+    driver: t.driver?.name ?? '--',
+    confirmed: t.confirmed_count ?? 0,
+    pending: t.pending_count ?? 0,
+    capacity: t.vehicle?.capacity ?? '--',
   }))
 )
 
@@ -56,29 +55,26 @@ function buildParams(page = 1) {
   return {
     page,
     per_page: 15,
-    ...(search.value ? { passenger: search.value } : {}),
     ...(filters.value.status ? { status: filters.value.status } : {}),
-    ...(filters.value.payment_status ? { payment_status: filters.value.payment_status } : {}),
-    ...(filters.value.date_from ? { date_from: filters.value.date_from } : {}),
-    ...(filters.value.date_to ? { date_to: filters.value.date_to } : {}),
+    ...(filters.value.date_from ? { date: filters.value.date_from } : {}),
   }
 }
 
 async function fetchData(page = 1) {
   loading.value = true
   try {
-    const [all, pending, confirmed, cancelled] = await Promise.all([
-      bookingService.list(buildParams(page)),
+    const [tripsRes, pending, confirmed, cancelled] = await Promise.all([
+      tripService.list(buildParams(page)),
       bookingService.list({ status: 'pending', per_page: 1 }),
       bookingService.list({ status: 'confirmed', per_page: 1 }),
       bookingService.list({ status: 'cancelled', per_page: 1 }),
     ])
 
-    bookings.value = all.data
-    pagination.value = all.meta
+    trips.value = tripsRes.data
+    pagination.value = tripsRes.meta
 
     stats.value = {
-      total: all.meta.total,
+      total: tripsRes.meta.total,
       pending: pending.meta.total,
       confirmed: confirmed.meta.total,
       cancelled: cancelled.meta.total,
@@ -109,13 +105,6 @@ const pageNumbers = computed(() => {
   return range
 })
 
-let searchTimer = null
-function onSearch(val) {
-  search.value = val
-  clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => fetchData(1), 400)
-}
-
 let filterTimer = null
 watch(filters, () => {
   clearTimeout(filterTimer)
@@ -123,7 +112,11 @@ watch(filters, () => {
 }, { deep: true })
 
 function clearFilters() {
-  filters.value = { status: '', payment_status: '', date_from: '', date_to: '' }
+  filters.value = { status: '', date_from: '', date_to: '' }
+}
+
+function openTrip(row) {
+  selectedTrip.value = trips.value.find((t) => t.id === row.id) ?? null
 }
 
 onMounted(() => fetchData())
@@ -132,22 +125,22 @@ onMounted(() => fetchData())
 <template>
   <div class="homeWrapper">
     <header>
-      <Text txt="Reservas" color="221F20" weight="600" size="37px" />
+      <Text txt="Viagens" color="221F20" weight="600" size="37px" />
       <Profile />
     </header>
 
     <div class="filterData">
       <div class="searchData">
         <Search
-          txt="Pesquise pelo nome do passageiro"
+          txt="Pesquise por rota ou data"
           :modelValue="search"
-          @update:modelValue="onSearch"
+          @update:modelValue="search = $event"
         />
 
         <div class="Data">
           <IconText
-            icon="fi fi-rs-ticket"
-            txt="Nova reserva"
+            icon="fi fi-rs-bus"
+            txt="Nova viagem"
             color="#8B9B1A"
             background="#A3206A"
           />
@@ -157,43 +150,30 @@ onMounted(() => fetchData())
       <div class="filters">
         <div class="dates">
           <DateFilter
-            txt="Data Inicial"
+            txt="Data"
             icon="fi fi-sr-calendar"
             color="#A3206A"
             v-model="filters.date_from"
-          />
-          <DateFilter
-            txt="Data Final"
-            icon="fi fi-sr-calendar"
-            color="#A3206A"
-            v-model="filters.date_to"
           />
         </div>
 
         <div class="dropdowns">
           <FilterDropDown
-            txt="Estado da reserva"
-            icon="fi fi-sr-ticket"
+            txt="Estado da viagem"
+            icon="fi fi-sr-bus"
             color="#A3206A"
-            :options="statusOptions"
+            :options="tripStatusOptions"
             v-model="filters.status"
-          />
-          <FilterDropDown
-            txt="Estado de pagamento"
-            icon="fi fi-sr-sack-dollar"
-            color="#A3206A"
-            :options="paymentOptions"
-            v-model="filters.payment_status"
           />
           <CleanFilter v-if="hasFilters" @click="clearFilters" />
         </div>
       </div>
 
       <div class="Statistcss">
-        <StatiscSimple title="Total de reservas" :data="stats.total" />
-        <StatiscSimple title="Pendentes" :data="stats.pending" />
-        <StatiscSimple title="Confirmadas" :data="stats.confirmed" />
-        <StatiscSimple title="Canceladas" :data="stats.cancelled" />
+        <StatiscSimple title="Total de viagens" :data="stats.total" />
+        <StatiscSimple title="Reservas pendentes" :data="stats.pending" />
+        <StatiscSimple title="Reservas confirmadas" :data="stats.confirmed" />
+        <StatiscSimple title="Reservas canceladas" :data="stats.cancelled" />
       </div>
 
       <div class="table">
@@ -201,9 +181,9 @@ onMounted(() => fetchData())
           <div class="loader"></div>
         </div>
 
-        <div v-else-if="bookings.length === 0" class="emptyState">
+        <div v-else-if="trips.length === 0" class="emptyState">
           <i class="fi fi-sr-folder-open emptyIcon"></i>
-          <Text txt="Nenhuma reserva encontrada" color="A3206A" weight="600" size="22px" />
+          <Text txt="Nenhuma viagem encontrada" color="A3206A" weight="600" size="22px" />
           <p class="emptyText">Não existem dados para os filtros seleccionados.</p>
         </div>
 
@@ -213,6 +193,7 @@ onMounted(() => fetchData())
             :rows="rows"
             displayIcon="none"
             displayEye="flex"
+            @row-click="openTrip"
           />
 
           <div class="pagination" v-if="pagination.last_page > 1">
@@ -235,12 +216,18 @@ onMounted(() => fetchData())
               <i class="fi fi-sr-angle-right" />
             </button>
 
-            <span class="pageInfo">{{ pagination.total }} registos</span>
+            <span class="pageInfo">{{ pagination.total }} viagens</span>
           </div>
         </template>
       </div>
     </div>
   </div>
+
+  <TripDetailModal
+    v-if="selectedTrip"
+    :trip="selectedTrip"
+    @close="selectedTrip = null"
+  />
 </template>
 
 <style scoped>
