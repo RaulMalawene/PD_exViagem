@@ -152,7 +152,7 @@ tbody tr.row-clickable:hover {
 .Eye {
   height: 30px;
   width: 30px;
-  background: #A3206A;
+  background: #922877;
   color: white;
   display: flex;
   align-items: center;

@@ -59,7 +59,7 @@ input {
 }
 
 i {
-  color: #A3206A;
+  color: #922877;
   position: relative;
   top: 1px;
 }

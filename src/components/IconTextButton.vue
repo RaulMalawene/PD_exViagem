@@ -35,11 +35,11 @@ defineProps({
 .fakebutton i {
   position: relative;
   top: 2px;
-  color: #A3206A;
+  color: #922877;
 }
 
 .fakebutton:hover {
-  background: #A3206A;
+  background: #922877;
   color: #EEEEEE;
 }
 
@@ -48,7 +48,7 @@ defineProps({
 }
 
 .fakebutton.selected {
-  background: #A3206A;
+  background: #922877;
   color: #EEEEEE;
 }
 

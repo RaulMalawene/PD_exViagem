@@ -23,7 +23,7 @@ button {
   padding: 12px;
   border: none;
   border-radius: 8px;
-  background: #A3206A;
+  background: #922877;
   color: white;
   font-weight: 600;
   cursor: pointer;

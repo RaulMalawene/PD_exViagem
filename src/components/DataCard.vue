@@ -29,7 +29,7 @@ defineProps({
   min-height: 76px;
   height: auto;
   border-radius: 8px;
-  background: #A3206A;
+  background: #922877;
   display: flex;
   flex-direction: column;
   justify-content: center;

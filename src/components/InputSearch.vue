@@ -37,12 +37,12 @@ defineEmits(['update:modelValue'])
 }
 
 .searchWrapper:focus-within {
-  border-color: #A3206A;
+  border-color: #922877;
   background: #fff;
 }
 
 i {
-  color: #A3206A;
+  color: #922877;
   font-size: 14px;
   position: relative;
   top: 1px;

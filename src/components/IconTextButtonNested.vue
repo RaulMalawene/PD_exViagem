@@ -71,7 +71,7 @@ defineEmits(['click', 'update:selectedNest'])
 }
 
 .fakebutton:hover {
-  background: #A3206A;
+  background: #922877;
   color: #EEEEEE;
 }
 
@@ -80,7 +80,7 @@ defineEmits(['click', 'update:selectedNest'])
 }
 
 .fakebutton.selected {
-  background: #A3206A;
+  background: #922877;
   color: #EEEEEE;
 }
 
@@ -117,7 +117,7 @@ defineEmits(['click', 'update:selectedNest'])
 }
 
 .selectedNest {
-  background: #A3206A;
+  background: #922877;
   color: white;
 }
 

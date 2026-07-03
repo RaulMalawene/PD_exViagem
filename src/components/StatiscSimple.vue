@@ -42,7 +42,7 @@ defineProps({
 .titleStatistc i {
   position: relative;
   top: 3px;
-  color: #A3206A;
+  color: #922877;
   flex-shrink: 0;
   font-size: 10px;
 }

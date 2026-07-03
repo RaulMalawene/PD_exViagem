@@ -25,7 +25,7 @@ const emit = defineEmits(['click'])
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #A3206A;
+  background: #922877;
   border-radius: 5px;
 }
 

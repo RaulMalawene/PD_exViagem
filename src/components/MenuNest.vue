@@ -39,7 +39,7 @@ defineProps({
 }
 
 .fakebuttonn.selected {
-  background: #A3206A;
+  background: #922877;
   color: white;
 }
 

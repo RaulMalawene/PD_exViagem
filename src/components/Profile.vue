@@ -272,7 +272,7 @@ function handleLogout() {
 .profileImg {
   height: 30px;
   width: 30px;
-  background: #A3206A;
+  background: #922877;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -335,7 +335,7 @@ function handleLogout() {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: #A3206A;
+  background: #922877;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -363,7 +363,7 @@ function handleLogout() {
 
 .userRole {
   font-size: 12px;
-  color: #A3206A;
+  color: #922877;
   font-weight: 600;
   background: rgba(163, 32, 106, 0.1);
   padding: 2px 8px;
@@ -390,7 +390,7 @@ function handleLogout() {
 }
 
 .infoIcon {
-  color: #A3206A;
+  color: #922877;
   font-size: 13px;
   width: 16px;
   flex-shrink: 0;
@@ -435,7 +435,7 @@ function handleLogout() {
 }
 
 .btn-edit {
-  background: #A3206A;
+  background: #922877;
   color: white;
 }
 
@@ -532,7 +532,7 @@ function handleLogout() {
   height: 40px;
   border-radius: 8px;
   border: none;
-  background: #A3206A;
+  background: #922877;
   color: white;
   font-size: 13px;
   font-weight: 600;
@@ -592,7 +592,7 @@ function handleLogout() {
 }
 
 .toast--success {
-  background: #A3206A;
+  background: #922877;
 }
 
 .toast--error {
