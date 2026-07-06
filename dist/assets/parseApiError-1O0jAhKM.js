@@ -1,0 +1,1 @@
+function o(e){var t;const r=(t=e==null?void 0:e.response)==null?void 0:t.data;if(!r)return"Erro interno. Tente novamente.";if(r.errors){const n=Object.values(r.errors)[0];return Array.isArray(n)?n[0]:n}return r.message??"Erro interno. Tente novamente."}export{o as p};
