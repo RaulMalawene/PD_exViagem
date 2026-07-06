@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useDriverStore } from '../stores/driverStore'
+import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
 import BaseInput from '../components/BaseInput.vue'
 import DriverPhotoQr from '../components/DriverPhotoQr.vue'
@@ -15,6 +16,7 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const driverStore = useDriverStore()
+const { showToast } = useToast()
 
 const localDriver = ref(props.driver)
 const photoUrl = ref(props.driver?.photo_url ?? null)
@@ -29,8 +31,6 @@ const form = ref({
 
 const formErrors = ref({ name: '', license_number: '', license_expiry: '', phone: '' })
 const isSaving = ref(false)
-const errorMessage = ref('')
-const successMessage = ref('')
 
 function clearErrors() {
   formErrors.value = { name: '', license_number: '', license_expiry: '', phone: '' }
@@ -63,8 +63,6 @@ function validate() {
 async function handleSave() {
   if (!validate()) return
   isSaving.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
 
   try {
     const payload = {
@@ -78,15 +76,15 @@ async function handleSave() {
       payload.is_active = form.value.is_active
       const res = await driverStore.updateDriver(localDriver.value.id, payload)
       localDriver.value = res.data
-      successMessage.value = 'Alterações salvas com sucesso.'
+      showToast('success', 'Alterações salvas com sucesso.')
     } else {
       const res = await driverStore.createDriver(payload)
       localDriver.value = res.data
       photoUrl.value = res.data.photo_url
-      successMessage.value = 'Motorista criado. Já pode adicionar a foto.'
+      showToast('success', 'Motorista criado. Já pode adicionar a foto.')
     }
   } catch (err) {
-    errorMessage.value = parseApiError(err)
+    showToast('error', parseApiError(err))
   } finally {
     isSaving.value = false
   }
@@ -153,9 +151,6 @@ function handleClose() {
                 Motorista activo
               </label>
             </div>
-
-            <p v-if="errorMessage" class="formMessage formMessage--error">{{ errorMessage }}</p>
-            <p v-if="successMessage" class="formMessage formMessage--success">{{ successMessage }}</p>
           </div>
 
           <div class="modalFooter">
@@ -308,22 +303,6 @@ function handleClose() {
 .activeToggle input {
   accent-color: #A3206A;
   cursor: pointer;
-}
-
-.formMessage {
-  font-size: 13px;
-  padding: 8px 12px;
-  border-radius: 6px;
-}
-
-.formMessage--error {
-  background: #F8D7DA;
-  color: #58151C;
-}
-
-.formMessage--success {
-  background: #D1E7DD;
-  color: #0A3622;
 }
 
 .modalFooter {
