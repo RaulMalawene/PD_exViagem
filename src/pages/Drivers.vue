@@ -7,6 +7,7 @@ import { formatDate } from '../utils/formatDate'
 import Text from '../components/Text.vue'
 import Profile from '../components/Profile.vue'
 import Search from '../components/Search.vue'
+import StatiscSimple from '../components/StatiscSimple.vue'
 import TableBase from '../components/TableBase.vue'
 import IconText from '../components/IconText.vue'
 import DriverFormModal from '../modal/DriverFormModal.vue'
@@ -121,6 +122,10 @@ onMounted(() => fetchData())
         </div>
       </div>
 
+      <div class="Statistcss">
+        <StatiscSimple title="Total de motoristas" :data="pagination.total" />
+      </div>
+
       <div class="table">
         <div v-if="loading" class="loaderWrapper">
           <div class="loader"></div>
@@ -226,8 +231,17 @@ header {
   cursor: pointer;
 }
 
+.Statistcss {
+  margin-top: 24px;
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  width: 100%;
+  flex-shrink: 0;
+}
+
 .table {
-  margin-top: 40px;
+  margin-top: 24px;
   flex: 1;
   min-height: 0;
   width: 100%;
