@@ -159,13 +159,19 @@ async function handleLogin() {
 
 .right {
   width: 50%;
-  background: #A3206A;
+  background: #922877;
   border-radius: 8px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+
+.rightSymbol {
+    width: clamp(140px, 18vw, 230px);
+    height: auto;
+    opacity: 0.95;
 }
 
 .busIcon {

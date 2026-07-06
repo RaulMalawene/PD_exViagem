@@ -142,7 +142,7 @@ onMounted(() => fetchData())
             icon="fi fi-rs-bus"
             txt="Nova viagem"
             color="#8B9B1A"
-            background="#A3206A"
+            background="#922877"
           />
         </div>
       </div>
@@ -152,7 +152,7 @@ onMounted(() => fetchData())
           <DateFilter
             txt="Data"
             icon="fi fi-sr-calendar"
-            color="#A3206A"
+            color="#922877"
             v-model="filters.date_from"
           />
         </div>
@@ -161,7 +161,7 @@ onMounted(() => fetchData())
           <FilterDropDown
             txt="Estado da viagem"
             icon="fi fi-sr-bus"
-            color="#A3206A"
+            color="#922877"
             :options="tripStatusOptions"
             v-model="filters.status"
           />
@@ -183,7 +183,7 @@ onMounted(() => fetchData())
 
         <div v-else-if="trips.length === 0" class="emptyState">
           <i class="fi fi-sr-folder-open emptyIcon"></i>
-          <Text txt="Nenhuma viagem encontrada" color="A3206A" weight="600" size="22px" />
+          <Text txt="Nenhuma viagem encontrada" color="922877" weight="600" size="22px" />
           <p class="emptyText">Não existem dados para os filtros seleccionados.</p>
         </div>
 
@@ -348,7 +348,7 @@ header {
   width: 36px;
   height: 36px;
   border: 3px solid #f0f0f0;
-  border-top-color: #A3206A;
+  border-top-color: #922877;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -359,7 +359,7 @@ header {
 
 .emptyIcon {
   font-size: 48px;
-  color: #A3206A;
+  color: #922877;
   opacity: 0.4;
 }
 
@@ -418,7 +418,7 @@ header {
 }
 
 .pageNumBtn.active {
-  background: #A3206A;
+  background: #922877;
   color: white;
   font-weight: 600;
 }
