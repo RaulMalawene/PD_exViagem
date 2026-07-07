@@ -20,6 +20,7 @@ const emit = defineEmits(['update:modelValue'])
 
 const selectedObj = ref('')
 const showList = ref(false)
+const isFiltering = ref(false)
 
 watch(
   () => [props.modelValue, props.options],
@@ -34,14 +35,26 @@ watch(
   { immediate: true }
 )
 
-const filteredOptions = computed(() =>
-  props.options.filter((option) =>
+const filteredOptions = computed(() => {
+  if (!isFiltering.value) return props.options
+
+  return props.options.filter((option) =>
     option.name.toLowerCase().includes(selectedObj.value.toLowerCase())
   )
-)
+})
+
+function handleFocus() {
+  showList.value = true
+  isFiltering.value = false
+}
+
+function handleInput() {
+  isFiltering.value = true
+}
 
 const selectObj = (option) => {
   selectedObj.value = option.name
+  isFiltering.value = false
   emit('update:modelValue', option.id)
   showList.value = false
 }
@@ -66,7 +79,8 @@ const validateObj = () => {
       <input
         type="text"
         v-model="selectedObj"
-        @focus="showList = true"
+        @focus="handleFocus"
+        @input="handleInput"
         @blur="validateObj"
         placeholder="Pesquisar..."
       />

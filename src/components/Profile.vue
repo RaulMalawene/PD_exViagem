@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
 import BaseInput from './BaseInput.vue'
 import Text from './Text.vue'
@@ -21,12 +22,7 @@ const isOpen = ref(false)
 const isEditing = ref(false)
 const isSaving = ref(false)
 
-const notification = ref(null)
-
-function showNotification(type, message) {
-  notification.value = { type, message }
-  setTimeout(() => { notification.value = null }, 3500)
-}
+const { showToast } = useToast()
 
 const form = ref({ name: '', email: '', current_password: '', password: '', password_confirmation: '' })
 const formErrors = ref({ name: '', email: '', current_password: '', password: '', password_confirmation: '' })
@@ -112,10 +108,10 @@ async function handleSave() {
     }
 
     await authStore.updateMe(payload)
-    showNotification('success', 'Perfil actualizado com sucesso!')
+    showToast('success', 'Perfil actualizado com sucesso!')
     closeEdit()
   } catch (err) {
-    showNotification('error', parseApiError(err))
+    showToast('error', parseApiError(err))
   } finally {
     isSaving.value = false
   }
@@ -132,13 +128,6 @@ function handleLogout() {
 </script>
 
 <template>
-  <Transition name="toast">
-    <div v-if="notification" :class="['toast', `toast--${notification.type}`]">
-      <i :class="notification.type === 'success' ? 'fi fi-sr-check-circle' : 'fi fi-sr-cross-circle'" />
-      <span>{{ notification.message }}</span>
-    </div>
-  </Transition>
-
   <div class="profileWrapper">
     <div class="profile" @click="isOpen = !isOpen">
       <div class="profileImg">
@@ -572,51 +561,5 @@ function handleLogout() {
 .card-leave-to {
   opacity: 0;
   transform: translateY(-8px);
-}
-
-.toast {
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  z-index: 99999;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 20px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  color: white;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  min-width: 280px;
-}
-
-.toast--success {
-  background: #922877;
-}
-
-.toast--error {
-  background: #e74c3c;
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.3s ease;
-}
-
-.toast-enter-from,
-.toast-leave-to {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-@media (max-width: 600px) {
-  .toast {
-    bottom: 15px;
-    right: 15px;
-    left: 15px;
-    min-width: auto;
-    width: calc(100% - 30px);
-  }
 }
 </style>
