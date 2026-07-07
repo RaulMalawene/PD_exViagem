@@ -301,7 +301,7 @@ function handleClose() {
 }
 
 .activeToggle input {
-  accent-color: #A3206A;
+  accent-color: #922877;
   cursor: pointer;
 }
 

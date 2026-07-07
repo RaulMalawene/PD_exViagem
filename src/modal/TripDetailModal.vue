@@ -456,7 +456,7 @@ onMounted(() => fetchBookings())
 }
 
 .infoRowIcon {
-  color: #A3206A;
+  color: #922877;
   font-size: 13px;
   position: relative;
   top: 1px;
@@ -603,7 +603,7 @@ onMounted(() => fetchBookings())
 }
 
 .cancelledToggle input {
-  accent-color: #A3206A;
+  accent-color: #922877;
   cursor: pointer;
 }
 
@@ -636,7 +636,7 @@ onMounted(() => fetchBookings())
 }
 
 .searchInput:focus {
-  border-color: #A3206A;
+  border-color: #922877;
 }
 
 .searchInput::placeholder {
@@ -666,7 +666,7 @@ onMounted(() => fetchBookings())
   width: 34px;
   height: 34px;
   border: 3px solid #f0f0f0;
-  border-top-color: #A3206A;
+  border-top-color: #922877;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -679,7 +679,7 @@ onMounted(() => fetchBookings())
 
 .emptyIcon {
   font-size: 38px;
-  color: #A3206A;
+  color: #922877;
   opacity: 0.3;
 }
 
@@ -810,7 +810,7 @@ onMounted(() => fetchBookings())
 }
 
 .pageNumBtn.active {
-  background: #A3206A;
+  background: #922877;
   color: white;
   font-weight: 600;
 }
