@@ -111,7 +111,7 @@ onMounted(() => loadSession())
   justify-content: center;
   padding: 24px;
   background: #f5f5f5;
-  font-family: Helvetica, sans-serif;
+  font-family: 'Ubuntu', sans-serif;
 }
 
 .captureCard {
