@@ -632,7 +632,7 @@ onMounted(() => fetchBookings())
   color: #333;
   outline: none;
   transition: border-color 0.15s;
-  font-family: Helvetica, sans-serif;
+  font-family: 'Ubuntu', sans-serif;
 }
 
 .searchInput:focus {
