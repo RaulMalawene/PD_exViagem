@@ -195,7 +195,7 @@ function selectDay(day) {
     align-items: center;
     justify-content: center;
     transition: background 0.12s, color 0.12s;
-    font-family: Helvetica, sans-serif;
+    font-family: 'Ubuntu', sans-serif;
 }
 
 .dayBtn:hover:not(.disabled) {
