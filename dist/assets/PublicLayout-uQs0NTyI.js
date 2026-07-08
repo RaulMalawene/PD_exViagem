@@ -1,0 +1,1 @@
+import{_ as o,c,b as t,h as a,o as s}from"./index-DV18QWte.js";const n={},r={class:"publicLayout"};function _(d,i){const e=a("RouterView");return s(),c("div",r,[t(e)])}const l=o(n,[["render",_],["__scopeId","data-v-8a63cd1a"]]);export{l as default};
