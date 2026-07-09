@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 60" width="220" height="60">
-  <rect width="220" height="60" fill="none"/>
-  <circle cx="28" cy="30" r="22" fill="#A3206A"/>
-  <text x="28" y="36" text-anchor="middle" fill="white" font-family="Helvetica,sans-serif" font-weight="800" font-size="14">PD</text>
-  <text x="60" y="24" fill="#A3206A" font-family="Helvetica,sans-serif" font-weight="700" font-size="16">PD Viagens</text>
-  <text x="60" y="42" fill="#8B9B1A" font-family="Helvetica,sans-serif" font-weight="400" font-size="11">Maputo · Joanesburgo</text>
-</svg>
