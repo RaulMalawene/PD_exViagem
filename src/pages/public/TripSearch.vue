@@ -2,7 +2,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePublicBookingStore } from '../../stores/publicBookingStore'
-import LogoPD from '../../assets/LogoPD.svg'
 import DatePicker from '../../components/DatePicker.vue'
 
 const router = useRouter()
@@ -60,13 +59,6 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
 <template>
     <div class="page">
 
-        <!-- HEADER -->
-        <header class="header">
-            <div class="headerInner">
-                <img :src="LogoPD" alt="Portador Diário" class="logo" />
-            </div>
-        </header>
-
         <!-- HERO -->
         <section class="hero">
             <div class="heroInner">
@@ -105,7 +97,7 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
                         <span class="selectValue" :class="{ placeholder: !selectedDate }">{{ formattedDate }}</span>
                         <i class="fi fi-rs-angle-small-down chevron" :class="{ rotated: dateOpen }" />
                         <Transition name="dropdown">
-                            <DatePicker v-if="dateOpen" v-model="selectedDate" :min="today"
+                            <DatePicker v-if="dateOpen" v-model="selectedDate" :min="today" :route-id="selectedRoute"
                                 @update:modelValue="dateOpen = false" />
                         </Transition>
                     </div>
@@ -184,27 +176,6 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
     background: #F6F6F6;
     display: flex;
     flex-direction: column;
-}
-
-.header {
-    background: #fff;
-    border-bottom: 1px solid #EEEEEE;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-
-.headerInner {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-}
-
-.logo {
-    height: 36px;
-    width: auto;
 }
 
 .hero {
@@ -544,14 +515,6 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
 }
 
 @media (min-width: 1024px) {
-    .headerInner {
-        padding: 16px 40px;
-    }
-
-    .logo {
-        height: 40px;
-    }
-
     .hero {
         padding: 100px 40px 160px;
     }
