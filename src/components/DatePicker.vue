@@ -1,12 +1,17 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
+import { usePublicBookingStore } from '../stores/publicBookingStore'
 
 const props = defineProps({
     modelValue: { type: String, default: '' },
     min: { type: String, default: '' },
+    routeId: { type: [String, Number], default: '' },
 })
 
 const emit = defineEmits(['update:modelValue'])
+
+const bookingStore = usePublicBookingStore()
+const tripDates = ref(new Set())
 
 const today = new Date()
 today.setHours(0, 0, 0, 0)
@@ -17,11 +22,36 @@ const currentMonth = ref(
         : new Date(today)
 )
 
+const viewMode = ref('days') // 'days' | 'years'
+const yearsListEl = ref(null)
+
 const weekDays = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 
 const monthLabel = computed(() => {
     return currentMonth.value.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })
 })
+
+const minYear = computed(() => (props.min ? new Date(props.min + 'T00:00:00').getFullYear() : null))
+
+const yearsList = computed(() => {
+    const start = minYear.value ?? today.getFullYear() - 10
+    const end = today.getFullYear() + 20
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+})
+
+async function openYearPicker() {
+    viewMode.value = 'years'
+    await nextTick()
+    yearsListEl.value?.querySelector('.yearItem.selected')?.scrollIntoView({ block: 'center' })
+}
+
+function selectYear(year) {
+    if (minYear.value !== null && year < minYear.value) return
+    const d = new Date(currentMonth.value)
+    d.setFullYear(year)
+    currentMonth.value = d
+    viewMode.value = 'days'
+}
 
 const calendarDays = computed(() => {
     const year = currentMonth.value.getFullYear()
@@ -50,6 +80,7 @@ const calendarDays = computed(() => {
             isToday: date.getTime() === today.getTime(),
             isSelected: dateStr === props.modelValue,
             isPast,
+            hasTrip: tripDates.value.has(dateStr),
         })
     }
 
@@ -60,6 +91,30 @@ const calendarDays = computed(() => {
 
     return days
 })
+
+function toDateStr(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+async function fetchTripDates() {
+    if (!props.routeId) return
+
+    const year = currentMonth.value.getFullYear()
+    const month = currentMonth.value.getMonth()
+    const firstOfMonth = new Date(year, month, 1)
+    const lastOfMonth = new Date(year, month + 1, 0)
+
+    const dateFrom = firstOfMonth < today ? today : firstOfMonth
+    if (dateFrom > lastOfMonth) {
+        tripDates.value = new Set()
+        return
+    }
+
+    const data = await bookingStore.fetchTripCalendar(props.routeId, toDateStr(dateFrom), toDateStr(lastOfMonth))
+    tripDates.value = new Set(data.dates)
+}
+
+watch(() => [props.routeId, currentMonth.value], fetchTripDates, { immediate: true })
 
 function prevMonth() {
     const d = new Date(currentMonth.value)
@@ -82,31 +137,55 @@ function selectDay(day) {
 <template>
     <div class="calendar" @click.stop>
 
-        <div class="calHeader">
-            <button class="navBtn" @click.stop="prevMonth">
-                <i class="fi fi-rs-angle-left" />
-            </button>
-            <span class="monthLabel">{{ monthLabel }}</span>
-            <button class="navBtn" @click.stop="nextMonth">
-                <i class="fi fi-rs-angle-right" />
-            </button>
-        </div>
+        <!-- VISTA DE DIAS -->
+        <template v-if="viewMode === 'days'">
+            <div class="calHeader">
+                <button class="navBtn" @click.stop="prevMonth">
+                    <i class="fi fi-rs-angle-left" />
+                </button>
+                <button class="monthLabel" @click.stop="openYearPicker">{{ monthLabel }}</button>
+                <button class="navBtn" @click.stop="nextMonth">
+                    <i class="fi fi-rs-angle-right" />
+                </button>
+            </div>
 
-        <div class="weekDays">
-            <span v-for="w in weekDays" :key="w" class="weekDay">{{ w }}</span>
-        </div>
+            <div class="weekDays">
+                <span v-for="w in weekDays" :key="w" class="weekDay">{{ w }}</span>
+            </div>
 
-        <div class="daysGrid">
-            <button v-for="(day, i) in calendarDays" :key="i" class="dayBtn" :class="{
-                outside: !day.current,
-                today: day.isToday && !day.isSelected,
-                selected: day.isSelected,
-                past: day.isPast,
-                disabled: !day.current || day.isPast,
-            }" @click.stop="selectDay(day)">
-                {{ day.day }}
-            </button>
-        </div>
+            <div class="daysGrid">
+                <button v-for="(day, i) in calendarDays" :key="i" class="dayBtn" :class="{
+                    outside: !day.current,
+                    today: day.isToday && !day.isSelected,
+                    selected: day.isSelected,
+                    past: day.isPast,
+                    disabled: !day.current || day.isPast,
+                }" @click.stop="selectDay(day)">
+                    {{ day.day }}
+                    <i v-if="day.hasTrip" class="fi fi-rs-bus dayTripIcon" />
+                </button>
+            </div>
+        </template>
+
+        <!-- VISTA DE ANOS -->
+        <template v-else>
+            <div class="calHeader">
+                <button class="navBtn" @click.stop="viewMode = 'days'">
+                    <i class="fi fi-rs-angle-left" />
+                </button>
+                <span class="monthLabel static">Selecionar ano</span>
+                <span class="navBtn placeholder" />
+            </div>
+
+            <div class="yearsList" ref="yearsListEl">
+                <button v-for="year in yearsList" :key="year" type="button" class="yearItem" :class="{
+                    selected: year === currentMonth.getFullYear(),
+                    disabled: minYear !== null && year < minYear,
+                }" @click.stop="selectYear(year)">
+                    {{ year }}
+                </button>
+            </div>
+        </template>
 
     </div>
 </template>
@@ -116,8 +195,9 @@ function selectDay(day) {
 .calendar {
   position: absolute;
   top: calc(100% + 8px);
-  left: 0;
-  width: 300px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(300px, calc(100vw - 32px));
   background: #fff;
   border: 1.5px solid #E0E0E0;
   border-radius: 12px;
@@ -158,6 +238,30 @@ function selectDay(day) {
     font-weight: 600;
     color: #221F20;
     text-transform: capitalize;
+    border: none;
+    background: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Ubuntu', sans-serif;
+    transition: background 0.15s;
+}
+
+.monthLabel:hover {
+    background: #f5f5f5;
+}
+
+.monthLabel.static {
+    cursor: default;
+}
+
+.monthLabel.static:hover {
+    background: none;
+}
+
+.navBtn.placeholder {
+    background: none;
+    pointer-events: none;
 }
 
 .weekDays {
@@ -182,6 +286,7 @@ function selectDay(day) {
 }
 
 .dayBtn {
+    position: relative;
     width: 100%;
     aspect-ratio: 1;
     border: none;
@@ -196,6 +301,17 @@ function selectDay(day) {
     justify-content: center;
     transition: background 0.12s, color 0.12s;
     font-family: 'Ubuntu', sans-serif;
+}
+
+.dayTripIcon {
+    position: absolute;
+    bottom: -2px;
+    font-size: 11px;
+    color: #922877;
+}
+
+.dayBtn.selected .dayTripIcon {
+    color: #fff;
 }
 
 .dayBtn:hover:not(.disabled) {
@@ -232,5 +348,45 @@ function selectDay(day) {
 
 .dayBtn.disabled {
     pointer-events: none;
+}
+
+/* YEARS */
+.yearsList {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.yearItem {
+    width: 100%;
+    padding: 11px 0;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #221F20;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.12s, color 0.12s;
+    font-family: 'Ubuntu', sans-serif;
+    flex-shrink: 0;
+}
+
+.yearItem:hover:not(.disabled) {
+    background: rgba(163, 32, 106, 0.08);
+    color: #922877;
+}
+
+.yearItem.selected {
+    background: #922877;
+    color: #fff;
+}
+
+.yearItem.disabled {
+    color: #ccc;
+    cursor: not-allowed;
 }
 </style>

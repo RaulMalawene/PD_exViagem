@@ -30,10 +30,12 @@ const selectedSeats = ref([])
 const sessionToken = ref(getOrCreateSessionToken())
 const seatExpiries = ref({})
 const timeLeft = ref(null)
+const pendingSeats = ref([])
 let timerInterval = null
 let pollInterval = null
 
 const hasSelection = computed(() => selectedSeats.value.length > 0)
+const hasPending = computed(() => pendingSeats.value.length > 0)
 
 const timeLeftFormatted = computed(() => {
   if (timeLeft.value === null) return null
@@ -90,9 +92,13 @@ async function fetchAvailability() {
 }
 
 async function toggleSeat(seat) {
+  if (pendingSeats.value.includes(seat)) return
+
   const state = getSeatState(seat)
 
   if (state === 'booked') return
+
+  pendingSeats.value = [...pendingSeats.value, seat]
 
   if (state === 'selected') {
     await releaseSeat(seat)
@@ -113,6 +119,8 @@ async function holdSeat(seat) {
       ? 'Este lugar já foi reservado por outro passageiro.'
       : parseApiError(err))
     await fetchAvailability()
+  } finally {
+    pendingSeats.value = pendingSeats.value.filter((s) => s !== seat)
   }
 }
 
@@ -123,6 +131,7 @@ async function releaseSeat(seat) {
     // libertar um lugar e uma operacao best-effort - o hold expira sozinho de qualquer forma
   } finally {
     await fetchAvailability()
+    pendingSeats.value = pendingSeats.value.filter((s) => s !== seat)
   }
 }
 
@@ -156,7 +165,20 @@ function startTimer() {
 }
 
 function proceed() {
-  if (!hasSelection.value) return
+  if (!hasSelection.value || hasPending.value) return
+
+  const expiries = Object.values(seatExpiries.value)
+  const holdExpiresAt = expiries.length
+    ? expiries.reduce((min, d) => (d < min ? d : min)).toISOString()
+    : null
+
+  bookingStore.saveFlow({
+    tripId,
+    sessionToken: sessionToken.value,
+    selectedSeats: selectedSeats.value,
+    holdExpiresAt,
+  })
+
   router.push({
     path: '/booking/passengers',
     query: {
@@ -168,6 +190,15 @@ function proceed() {
 }
 
 onMounted(() => {
+  const flow = bookingStore.flow
+  if (flow.bookingGroup && String(flow.tripId) === String(tripId)) {
+    router.replace({
+      path: '/booking/payment',
+      query: { trip_id: tripId, bookings: JSON.stringify(flow.bookingGroup) },
+    })
+    return
+  }
+
   fetchAvailability()
   pollInterval = setInterval(fetchAvailability, 15000)
 })
@@ -240,10 +271,11 @@ onUnmounted(() => {
                   <div
                     v-if="cell"
                     class="seat"
-                    :class="getSeatState(cell.seat)"
+                    :class="[getSeatState(cell.seat), { pending: pendingSeats.includes(cell.seat) }]"
                     @click="toggleSeat(cell.seat)"
                   >
-                    {{ cell.seat }}
+                    <div v-if="pendingSeats.includes(cell.seat)" class="seatSpinner" />
+                    <span v-else>{{ cell.seat }}</span>
                   </div>
                   <div v-else class="aisle">
                     {{ rowIdx + 1 }}
@@ -285,7 +317,8 @@ onUnmounted(() => {
           <!-- CONTINUE BUTTON -->
           <button
             class="continueBtn"
-            :class="{ disabled: !hasSelection }"
+            :class="{ disabled: !hasSelection || hasPending }"
+            :disabled="!hasSelection || hasPending"
             @click="proceed"
           >
             Continuar
@@ -533,6 +566,25 @@ onUnmounted(() => {
   border: 1.5px solid #E0E0E0;
   color: #bbb;
   cursor: not-allowed;
+}
+
+.seat.pending {
+  cursor: wait;
+  pointer-events: none;
+}
+
+.seatSpinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(146, 40, 119, 0.25);
+  border-top-color: #922877;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.seat.selected .seatSpinner {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
 }
 
 .aisle {

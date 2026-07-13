@@ -16,8 +16,10 @@ const route = useRoute()
 const bookingStore = usePublicBookingStore()
 const { showToast } = useToast()
 
-const tripId = route.query.trip_id
-const bookings = JSON.parse(route.query.bookings ?? '[]')
+const tripId = route.query.trip_id ?? bookingStore.flow.tripId
+const bookings = route.query.bookings
+    ? JSON.parse(route.query.bookings)
+    : (bookingStore.flow.bookingGroup ?? [])
 
 const loading = ref(true)
 const tripData = ref(null)
@@ -105,10 +107,11 @@ async function confirm() {
     submitting.value = true
     try {
         await new Promise((r) => setTimeout(r, 800))
+        bookingStore.clearFlow()
         router.push({
             path: '/booking/success',
             query: {
-                bookings: route.query.bookings,
+                bookings: JSON.stringify(bookings),
                 route_name: tripData.value?.route?.name,
                 date: tripData.value?.departure_date,
                 time: tripData.value?.departure_time?.slice(0, 5),
@@ -264,7 +267,8 @@ async function confirm() {
 
                 <!-- BOTAO -->
                 <div class="bottomArea">
-                    <button class="confirmBtn" :class="{ disabled: !canSubmit() || submitting }" @click="confirm">
+                    <button class="confirmBtn" :class="{ disabled: !canSubmit() || submitting }"
+                        :disabled="!canSubmit() || submitting" @click="confirm">
                         <span v-if="submitting">A processar...</span>
                         <span v-else>Confirmar pagamento</span>
                     </button>
