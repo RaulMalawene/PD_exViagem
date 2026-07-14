@@ -1,0 +1,1 @@
+import{B as a}from"./index-CxJdCjt-.js";const s={list:(t={})=>a.get("/trips",{params:t}).then(e=>e.data),show:t=>a.get(`/trips/${t}`).then(e=>e.data),create:t=>a.post("/trips",t).then(e=>e.data),update:(t,e)=>a.put(`/trips/${t}`,e).then(r=>r.data),remove:t=>a.delete(`/trips/${t}`).then(e=>e.data),generate:t=>a.post("/trips/generate",t).then(e=>e.data)};export{s as t};

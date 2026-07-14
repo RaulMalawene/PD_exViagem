@@ -37,5 +37,9 @@ export const useTripStore = defineStore('trip', {
     async cancelTrip(id) {
       return tripService.remove(id)
     },
+
+    async generateTrips(payload) {
+      return tripService.generate(payload)
+    },
   },
 })

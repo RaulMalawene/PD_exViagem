@@ -35,6 +35,10 @@ export const useVehicleStore = defineStore('vehicle', {
     },
 
     async deactivateVehicle(id) {
+      return vehicleService.deactivate(id)
+    },
+
+    async deleteVehicle(id) {
       return vehicleService.remove(id)
     },
   },

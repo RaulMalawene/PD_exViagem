@@ -1,9 +1,10 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useVehicleStore } from '../stores/vehicleStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
 import BaseInput from '../components/BaseInput.vue'
+import SeatLayoutEditor from '../components/SeatLayoutEditor.vue'
 
 const props = defineProps({
   vehicle: {
@@ -24,8 +25,29 @@ const form = ref({
   model: props.vehicle?.model ?? '',
   brand: props.vehicle?.brand ?? '',
   capacity: props.vehicle?.capacity ?? '',
+  seat_layout: props.vehicle?.seat_layout ?? null,
   is_active: props.vehicle?.is_active ?? true,
 })
+
+const useLayoutEditor = ref(!!props.vehicle?.seat_layout)
+
+const layoutSeatCount = computed(() => {
+  if (!form.value.seat_layout?.rows) return 0
+  return form.value.seat_layout.rows.flat().filter((cell) => cell !== null).length
+})
+
+watch(layoutSeatCount, (count) => {
+  if (useLayoutEditor.value) form.value.capacity = count
+})
+
+function toggleLayoutEditor() {
+  useLayoutEditor.value = !useLayoutEditor.value
+  if (useLayoutEditor.value) {
+    form.value.capacity = layoutSeatCount.value
+  } else {
+    form.value.seat_layout = null
+  }
+}
 
 const formErrors = ref({ plate: '', model: '', brand: '', capacity: '' })
 const isSaving = ref(false)
@@ -50,7 +72,12 @@ function validate() {
     formErrors.value.brand = 'A marca é obrigatória.'
     valid = false
   }
-  if (!form.value.capacity || Number(form.value.capacity) < 1) {
+  if (useLayoutEditor.value) {
+    if (layoutSeatCount.value < 1) {
+      formErrors.value.capacity = 'O layout de assentos tem de ter pelo menos 1 lugar.'
+      valid = false
+    }
+  } else if (!form.value.capacity || Number(form.value.capacity) < 1) {
     formErrors.value.capacity = 'A capacidade tem de ser pelo menos 1.'
     valid = false
   }
@@ -68,6 +95,7 @@ async function handleSave() {
       model: form.value.model,
       brand: form.value.brand,
       capacity: Number(form.value.capacity),
+      seat_layout: useLayoutEditor.value ? form.value.seat_layout : null,
     }
 
     if (localVehicle.value) {
@@ -79,6 +107,7 @@ async function handleSave() {
       const res = await vehicleStore.createVehicle(payload)
       localVehicle.value = res.data
       showToast('success', 'Veículo criado com sucesso.')
+      emit('close', true)
     }
   } catch (err) {
     showToast('error', parseApiError(err))
@@ -96,7 +125,7 @@ function handleClose() {
   <Transition name="overlay">
     <div class="modalOverlay" @click.self="handleClose">
       <Transition name="modal" appear>
-        <div class="modalCard">
+        <div class="modalCard" :class="{ wide: useLayoutEditor }">
           <div class="modalHeader">
             <span class="modalTitle">{{ props.vehicle ? 'Editar veículo' : 'Novo Veículo' }}</span>
             <button class="closeBtn" @click="handleClose">
@@ -104,34 +133,51 @@ function handleClose() {
             </button>
           </div>
 
-          <div class="modalBody">
-            <div class="formGrid">
-              <div class="fieldGroup">
-                <BaseInput label="Matrícula" :modelValue="form.plate" @update:modelValue="form.plate = $event" />
-                <span v-if="formErrors.plate" class="fieldError">{{ formErrors.plate }}</span>
-              </div>
+          <div class="modalBody" :class="{ split: useLayoutEditor }">
+            <div class="formColumn">
+              <div class="formGrid">
+                <div class="fieldGroup">
+                  <BaseInput label="Matrícula" :modelValue="form.plate" @update:modelValue="form.plate = $event" />
+                  <span v-if="formErrors.plate" class="fieldError">{{ formErrors.plate }}</span>
+                </div>
 
-              <div class="fieldGroup">
-                <BaseInput label="Modelo" :modelValue="form.model" @update:modelValue="form.model = $event" />
-                <span v-if="formErrors.model" class="fieldError">{{ formErrors.model }}</span>
-              </div>
+                <div class="fieldGroup">
+                  <BaseInput label="Modelo" :modelValue="form.model" @update:modelValue="form.model = $event" />
+                  <span v-if="formErrors.model" class="fieldError">{{ formErrors.model }}</span>
+                </div>
 
-              <div class="fieldGroup">
-                <BaseInput label="Marca" :modelValue="form.brand" @update:modelValue="form.brand = $event" />
-                <span v-if="formErrors.brand" class="fieldError">{{ formErrors.brand }}</span>
-              </div>
+                <div class="fieldGroup">
+                  <BaseInput label="Marca" :modelValue="form.brand" @update:modelValue="form.brand = $event" />
+                  <span v-if="formErrors.brand" class="fieldError">{{ formErrors.brand }}</span>
+                </div>
 
-              <div class="fieldGroup">
-                <BaseInput label="Capacidade" type="number" :modelValue="form.capacity"
-                  @update:modelValue="form.capacity = $event" />
-                <span v-if="formErrors.capacity" class="fieldError">{{ formErrors.capacity }}</span>
-              </div>
+                <div class="fieldGroup">
+                  <BaseInput label="Capacidade" type="number" :modelValue="form.capacity"
+                    :disabled="useLayoutEditor"
+                    @update:modelValue="form.capacity = $event" />
+                  <span v-if="formErrors.capacity" class="fieldError">{{ formErrors.capacity }}</span>
+                  <span v-if="useLayoutEditor" class="fieldHint">Calculada automaticamente a partir do layout de assentos.</span>
+                </div>
 
-              <label v-if="localVehicle" class="activeToggle">
-                <input type="checkbox" v-model="form.is_active" />
-                Veículo activo
-              </label>
+                <label class="activeToggle">
+                  <input type="checkbox" :checked="useLayoutEditor" @change="toggleLayoutEditor" />
+                  Configurar layout de assentos
+                </label>
+
+                <label v-if="localVehicle" class="activeToggle">
+                  <input type="checkbox" v-model="form.is_active" />
+                  Veículo activo
+                </label>
+              </div>
             </div>
+
+            <template v-if="useLayoutEditor">
+              <div class="modalDivider" />
+              <div class="layoutColumn">
+                <p class="layoutColumnTitle">Layout de assentos</p>
+                <SeatLayoutEditor v-model="form.seat_layout" />
+              </div>
+            </template>
           </div>
 
           <div class="modalFooter">
@@ -171,6 +217,11 @@ function handleClose() {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: max-width 0.2s ease;
+}
+
+.modalCard.wide {
+  max-width: 880px;
 }
 
 .modalHeader {
@@ -215,10 +266,51 @@ function handleClose() {
   gap: 20px;
 }
 
+.modalBody.split {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.formColumn {
+  flex: 1;
+  min-width: 0;
+}
+
+.modalDivider {
+  align-self: stretch;
+  width: 1px;
+  background: #eee;
+  flex-shrink: 0;
+}
+
+.layoutColumn {
+  flex: 1.3;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.layoutColumnTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
 .formGrid {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .modalBody.split {
+    flex-direction: column;
+  }
+
+  .modalDivider {
+    display: none;
+  }
 }
 
 .fieldGroup {
@@ -230,6 +322,12 @@ function handleClose() {
 .fieldError {
   font-size: 11px;
   color: #e74c3c;
+  padding-left: 2px;
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: #999;
   padding-left: 2px;
 }
 

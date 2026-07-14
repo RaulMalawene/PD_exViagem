@@ -111,6 +111,7 @@ async function handleSave() {
       const res = await tripStore.createTrip(payload)
       localTrip.value = res.data
       showToast('success', 'Viagem criada com sucesso.')
+      emit('close', true)
     }
   } catch (err) {
     showToast('error', parseApiError(err))
