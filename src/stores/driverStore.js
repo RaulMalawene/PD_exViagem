@@ -35,6 +35,10 @@ export const useDriverStore = defineStore('driver', {
     },
 
     async deactivateDriver(id) {
+      return driverService.deactivate(id)
+    },
+
+    async deleteDriver(id) {
       return driverService.remove(id)
     },
 
