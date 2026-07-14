@@ -3,6 +3,28 @@ import publicRouteService from '../services/publicRouteService'
 import publicTripService from '../services/publicTripService'
 import publicBookingService from '../services/publicBookingService'
 
+const FLOW_STORAGE_KEY = 'booking_flow_state'
+
+function emptyFlow() {
+  return {
+    tripId: null,
+    sessionToken: null,
+    selectedSeats: [],
+    holdExpiresAt: null,
+    passengers: null,
+    bookingGroup: null,
+  }
+}
+
+function loadFlow() {
+  try {
+    const raw = sessionStorage.getItem(FLOW_STORAGE_KEY)
+    return raw ? { ...emptyFlow(), ...JSON.parse(raw) } : emptyFlow()
+  } catch {
+    return emptyFlow()
+  }
+}
+
 export const usePublicBookingStore = defineStore('publicBooking', {
   state: () => ({
     routes: [],
@@ -11,6 +33,7 @@ export const usePublicBookingStore = defineStore('publicBooking', {
     loadingTrips: false,
     availability: null,
     loadingAvailability: false,
+    flow: loadFlow(),
   }),
 
   actions: {
@@ -71,6 +94,16 @@ export const usePublicBookingStore = defineStore('publicBooking', {
 
     async submitBooking(payload) {
       return publicBookingService.createGroup(payload)
+    },
+
+    saveFlow(partial) {
+      this.flow = { ...this.flow, ...partial }
+      sessionStorage.setItem(FLOW_STORAGE_KEY, JSON.stringify(this.flow))
+    },
+
+    clearFlow() {
+      this.flow = emptyFlow()
+      sessionStorage.removeItem(FLOW_STORAGE_KEY)
     },
   },
 })

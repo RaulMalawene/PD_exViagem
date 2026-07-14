@@ -1,8 +1,10 @@
 <script setup>
+import PublicHeader from '../components/PublicHeader.vue'
 </script>
 
 <template>
   <div class="publicLayout">
+    <PublicHeader />
     <RouterView />
   </div>
 </template>

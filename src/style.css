@@ -2,13 +2,27 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: Helvetica, sans-serif;
+  font-family: 'Ubuntu', sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
 body {
   overflow-x: hidden;
   height: 100%;
+}
+
+a:focus,
+button:focus,
+[role="button"]:focus {
+  outline: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #922877;
+  outline-offset: 2px;
 }
 
 img {

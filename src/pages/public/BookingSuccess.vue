@@ -175,7 +175,7 @@ function newBooking() {
 
       <!-- NOVA RESERVA -->
       <button class="newBookingBtn" @click="newBooking">
-        Fazer nova reserva
+        Fazer outra reserva
       </button>
 
     </div>
@@ -247,7 +247,7 @@ function newBooking() {
 
 .bannerSub {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
+  color: #fff;
 }
 
 .bannerTrip {
