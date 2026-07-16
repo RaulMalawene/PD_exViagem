@@ -20,7 +20,9 @@ const BookingSuccess = () => import('../pages/public/BookingSuccess.vue')
 const Home = () => import('../pages/Home.vue')
 const Drivers = () => import('../pages/Drivers.vue')
 const Vehicles = () => import('../pages/Vehicles.vue')
-const Trips = () => import('../pages/Trips.vue')
+const Routes = () => import('../pages/Routes.vue')
+const TripSchedules = () => import('../pages/TripSchedules.vue')
+const Bookings = () => import('../pages/Bookings.vue')
 const InDevelopment = () => import('../pages/InDevelopment.vue')
 
 // Paginas especiais
@@ -114,27 +116,24 @@ const routes = [
         component: Vehicles,
       },
       {
-        // Gestao de viagens
+        // Viagens foi absorvida pela Dashboard (Home)
         path: 'trips',
-        component: Trips,
+        redirect: '/dashboard/home',
       },
       {
-        // Gestao de reservas - por implementar
+        // Gestao de reservas
         path: 'bookings',
-        component: InDevelopment,
-        props: { title: 'Reservas' },
+        component: Bookings,
       },
       {
-        // Gestao de horarios - por implementar
+        // Gestao de horarios
         path: 'schedules',
-        component: InDevelopment,
-        props: { title: 'Horários' },
+        component: TripSchedules,
       },
       {
-        // Gestao de rotas - por implementar
+        // Gestao de rotas
         path: 'routes',
-        component: InDevelopment,
-        props: { title: 'Rotas' },
+        component: Routes,
       },
       {
         // Gestao de utilizadores - por implementar
