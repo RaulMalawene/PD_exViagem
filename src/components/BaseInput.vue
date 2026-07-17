@@ -8,6 +8,12 @@ defineProps({
   placeholder: String,
   icon: String,
   modelValue: String,
+  disabled: {
+    type: Boolean,
+    default: false,
+  },
+  min: String,
+  max: String,
 })
 
 defineEmits(['update:modelValue'])
@@ -17,13 +23,16 @@ defineEmits(['update:modelValue'])
   <div class="inputWrapper">
     <label>{{ label }}</label>
 
-    <div class="inputBox">
+    <div class="inputBox" :class="{ disabled }">
       <i :class="icon"></i>
 
       <input
         :type="type"
         :placeholder="placeholder"
         :value="modelValue"
+        :disabled="disabled"
+        :min="min"
+        :max="max"
         @input="$emit('update:modelValue', $event.target.value)"
       />
     </div>
@@ -50,6 +59,15 @@ label {
   padding: 10px;
   border-radius: 8px;
   background: #fff;
+}
+
+.inputBox.disabled {
+  background: #f6f6f6;
+}
+
+.inputBox.disabled input {
+  cursor: not-allowed;
+  color: #888;
 }
 
 input {

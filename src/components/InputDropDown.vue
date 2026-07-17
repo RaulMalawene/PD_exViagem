@@ -68,6 +68,8 @@ const validateObj = () => {
     selectedObj.value = ''
     emit('update:modelValue', null)
   }
+
+  showList.value = false
 }
 </script>
 

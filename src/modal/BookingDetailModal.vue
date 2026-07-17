@@ -1,10 +1,9 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useBookingStore } from '../stores/bookingStore'
-import { useToast } from '../composables/useToast'
-import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
 import Badge from '../components/Badge.vue'
+import PaymentManagerModal from './PaymentManagerModal.vue'
 
 const props = defineProps({
   booking: { type: Object, required: true },
@@ -13,100 +12,53 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const bookingStore = useBookingStore()
-const { showToast } = useToast()
 
 const localBooking = ref({ ...props.booking })
+const packages = ref([])
 const changed = ref(false)
+const showPaymentManager = ref(false)
 
-const paymentMethodOptions = [
-  { value: 'cash', label: 'Dinheiro' },
-  { value: 'transfer_mz', label: 'Transferência (MZ)' },
-  { value: 'transfer_za', label: 'Transferência (ZA)' },
-]
+const packagesTotal = computed(() =>
+  packages.value.reduce((sum, p) => sum + Number(p.total_amount), 0)
+)
 
-const confirmForm = ref({ payment_method: '', payment_reference: '' })
-const isConfirming = ref(false)
-
-const cancelForm = ref({ notes: '' })
-const cancelError = ref('')
-const isCancelling = ref(false)
-const showCancelForm = ref(false)
-
-const paymentForm = ref({
-  payment_method: props.booking.payment_method ?? '',
-  payment_reference: props.booking.payment_reference ?? '',
-  payment_status: props.booking.payment_status ?? 'pending',
-})
-const isUpdatingPayment = ref(false)
-
-async function handleConfirm() {
-  isConfirming.value = true
-
-  try {
-    const payload = {}
-    if (confirmForm.value.payment_method) payload.payment_method = confirmForm.value.payment_method
-    if (confirmForm.value.payment_reference) payload.payment_reference = confirmForm.value.payment_reference
-
-    localBooking.value = await bookingStore.confirmBooking(localBooking.value.id, payload)
-    changed.value = true
-    showToast('success', 'Reserva confirmada com sucesso.')
-  } catch (err) {
-    showToast('error', parseApiError(err))
-  } finally {
-    isConfirming.value = false
-  }
+async function refreshBooking() {
+  const res = await bookingStore.fetchBooking(localBooking.value.id)
+  localBooking.value = res.data
 }
 
-async function handleCancel() {
-  cancelError.value = ''
-  if (!cancelForm.value.notes.trim()) {
-    cancelError.value = 'O motivo do cancelamento é obrigatório.'
-    return
-  }
-
-  isCancelling.value = true
-
-  try {
-    localBooking.value = await bookingStore.cancelBooking(localBooking.value.id, cancelForm.value.notes)
-    changed.value = true
-    showCancelForm.value = false
-    cancelForm.value.notes = ''
-    showToast('success', 'Reserva cancelada com sucesso.')
-  } catch (err) {
-    showToast('error', parseApiError(err))
-  } finally {
-    isCancelling.value = false
-  }
+async function refreshPackages() {
+  const res = await bookingStore.fetchPackages(localBooking.value.id)
+  packages.value = res.data
 }
 
-async function handleUpdatePayment() {
-  isUpdatingPayment.value = true
+function openPaymentManager() {
+  showPaymentManager.value = true
+}
 
-  try {
-    localBooking.value = await bookingStore.updateBookingPayment(localBooking.value.id, {
-      payment_method: paymentForm.value.payment_method || null,
-      payment_reference: paymentForm.value.payment_reference || null,
-      payment_status: paymentForm.value.payment_status,
-    })
+async function closePaymentManager(didChange) {
+  showPaymentManager.value = false
+
+  if (didChange) {
     changed.value = true
-    showToast('success', 'Pagamento actualizado com sucesso.')
-  } catch (err) {
-    showToast('error', parseApiError(err))
-  } finally {
-    isUpdatingPayment.value = false
+    await Promise.all([refreshBooking(), refreshPackages()])
   }
 }
 
 function handleClose() {
   emit('close', changed.value)
 }
+
+onMounted(() => {
+  refreshPackages()
+})
 </script>
 
 <template>
   <Transition name="overlay">
     <div class="modalOverlay" @click.self="handleClose">
       <Transition name="modal" appear>
-        <div class="modalCard">
+        <div class="modalCard" :class="{ withDrawer: showPaymentManager }">
           <div class="modalHeader">
             <div class="headerLeft">
               <i class="fi fi-rs-ticket headerIcon" />
@@ -116,7 +68,7 @@ function handleClose() {
             </div>
             <div class="headerRight">
               <Badge :status="localBooking.status" />
-              <Badge :status="localBooking.payment_status" />
+              <Badge v-if="localBooking.invoice" :status="localBooking.invoice.status" />
               <button class="closeBtn" @click="handleClose">
                 <i class="fi fi-br-cross" />
               </button>
@@ -179,80 +131,23 @@ function handleClose() {
               <p class="notesText">{{ localBooking.notes }}</p>
             </div>
 
-            <div class="verticalSpacer" />
+            <div class="section paymentSummary">
+              <span class="sectionTitle">Pagamento</span>
 
-            <div v-if="localBooking.status === 'pending'" class="section actionSection">
-              <span class="sectionTitle">Confirmar reserva</span>
-              <div class="fieldRow">
-                <div class="fieldGroup">
-                  <label class="fieldLabel">Método de pagamento</label>
-                  <select class="selectInput" v-model="confirmForm.payment_method">
-                    <option value="">Não definir</option>
-                    <option v-for="opt in paymentMethodOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                  </select>
-                </div>
-                <div class="fieldGroup">
-                  <label class="fieldLabel">Referência</label>
-                  <input class="textInput" type="text" v-model="confirmForm.payment_reference" placeholder="Opcional" />
-                </div>
+              <div v-if="localBooking.invoice" class="summaryRow">
+                <span class="summaryLabel">Bilhete</span>
+                <Badge :status="localBooking.invoice.status" />
+                <span class="summaryAmount">{{ localBooking.invoice.total_amount }} {{ localBooking.invoice.currency }}</span>
               </div>
-              <button class="actionBtn green" :disabled="isConfirming" @click="handleConfirm">
-                <i class="fi fi-rs-check" />
-                {{ isConfirming ? 'A confirmar...' : 'Confirmar reserva' }}
-              </button>
-            </div>
 
-            <div v-if="localBooking.status !== 'cancelled'" class="section actionSection">
-              <span class="sectionTitle">Cancelar reserva</span>
-
-              <template v-if="!showCancelForm">
-                <button class="actionBtn red" @click="showCancelForm = true">
-                  <i class="fi fi-rs-ban" />
-                  Cancelar reserva
-                </button>
-              </template>
-
-              <template v-else>
-                <div class="fieldGroup">
-                  <label class="fieldLabel">Motivo do cancelamento</label>
-                  <textarea class="textareaInput" v-model="cancelForm.notes" rows="2" placeholder="Explique o motivo do cancelamento" />
-                  <span v-if="cancelError" class="fieldError">{{ cancelError }}</span>
-                </div>
-                <div class="cancelActions">
-                  <button class="btnSecondary" @click="showCancelForm = false; cancelForm.notes = ''; cancelError = ''">Voltar</button>
-                  <button class="actionBtn red" :disabled="isCancelling" @click="handleCancel">
-                    {{ isCancelling ? 'A cancelar...' : 'Confirmar cancelamento' }}
-                  </button>
-                </div>
-              </template>
-            </div>
-
-            <div class="section actionSection">
-              <span class="sectionTitle">Actualizar pagamento</span>
-              <div class="fieldRow">
-                <div class="fieldGroup">
-                  <label class="fieldLabel">Método de pagamento</label>
-                  <select class="selectInput" v-model="paymentForm.payment_method">
-                    <option value="">Não definir</option>
-                    <option v-for="opt in paymentMethodOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                  </select>
-                </div>
-                <div class="fieldGroup">
-                  <label class="fieldLabel">Estado do pagamento</label>
-                  <select class="selectInput" v-model="paymentForm.payment_status">
-                    <option value="pending">Pendente</option>
-                    <option value="paid">Pago</option>
-                    <option value="refunded">Reembolsado</option>
-                  </select>
-                </div>
+              <div v-if="packages.length" class="summaryRow">
+                <span class="summaryLabel">Mercadorias ({{ packages.length }})</span>
+                <span class="summaryAmount">{{ packagesTotal.toFixed(2) }} {{ localBooking.invoice?.currency ?? 'MZN' }}</span>
               </div>
-              <div class="fieldGroup">
-                <label class="fieldLabel">Referência</label>
-                <input class="textInput" type="text" v-model="paymentForm.payment_reference" placeholder="Opcional" />
-              </div>
-              <button class="actionBtn magenta" :disabled="isUpdatingPayment" @click="handleUpdatePayment">
-                <i class="fi fi-rs-credit-card" />
-                {{ isUpdatingPayment ? 'A actualizar...' : 'Actualizar pagamento' }}
+
+              <button class="manageBtn" @click="openPaymentManager">
+                <i class="fi fi-rs-wallet" />
+                Gerir pagamentos
               </button>
             </div>
           </div>
@@ -260,6 +155,12 @@ function handleClose() {
       </Transition>
     </div>
   </Transition>
+
+  <PaymentManagerModal
+    v-if="showPaymentManager"
+    :booking="localBooking"
+    @close="closePaymentManager"
+  />
 </template>
 
 <style scoped>
@@ -278,13 +179,18 @@ function handleClose() {
 
 .modalCard {
   width: 100%;
-  max-width: 640px;
+  max-width: 560px;
   max-height: calc(100vh - 80px);
   background: white;
   border-radius: 5px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: transform 0.25s ease;
+}
+
+.modalCard.withDrawer {
+  transform: translateX(-210px);
 }
 
 .modalHeader {
@@ -415,82 +321,33 @@ function handleClose() {
   padding: 10px 12px;
 }
 
-.verticalSpacer {
-  height: 1px;
-  background: #f0f0f0;
-}
-
-.actionSection {
+.paymentSummary {
   background: #fafafa;
   border-radius: 10px;
   padding: 16px;
 }
 
-.fieldRow {
+.summaryRow {
   display: flex;
-  gap: 14px;
-}
-
-.fieldRow .fieldGroup {
-  flex: 1;
-  min-width: 0;
-}
-
-.fieldGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.fieldLabel {
-  font-size: 12px;
-  font-weight: 600;
-  color: #555;
-}
-
-.selectInput,
-.textInput {
-  height: 38px;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  padding: 0 10px;
-  font-size: 13px;
-  color: #333;
-  font-family: 'Ubuntu', sans-serif;
-  background: #fff;
-  outline: none;
-}
-
-.textareaInput {
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 13px;
-  color: #333;
-  font-family: 'Ubuntu', sans-serif;
-  background: #fff;
-  outline: none;
-  resize: vertical;
-}
-
-.selectInput:focus,
-.textInput:focus,
-.textareaInput:focus {
-  border-color: #922877;
-}
-
-.fieldError {
-  font-size: 11px;
-  color: #e74c3c;
-}
-
-.cancelActions {
-  display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 10px;
 }
 
-.actionBtn {
+.summaryLabel {
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+  flex: 1;
+}
+
+.summaryAmount {
+  font-size: 14px;
+  color: #222;
+  font-weight: 700;
+}
+
+.manageBtn {
+  margin-top: 4px;
   align-self: flex-start;
   height: 38px;
   padding: 0 16px;
@@ -504,44 +361,11 @@ function handleClose() {
   gap: 8px;
   transition: opacity 0.15s;
   color: #fff;
-}
-
-.actionBtn:hover:not(:disabled) {
-  opacity: 0.88;
-}
-
-.actionBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.actionBtn.green {
-  background: #8B9B1A;
-}
-
-.actionBtn.magenta {
   background: #922877;
 }
 
-.actionBtn.red {
-  background: #d33939;
-}
-
-.btnSecondary {
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 8px;
-  border: none;
-  background: #f0f0f0;
-  color: #555;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btnSecondary:hover {
-  background: #e0e0e0;
+.manageBtn:hover {
+  opacity: 0.88;
 }
 
 .overlay-enter-active,

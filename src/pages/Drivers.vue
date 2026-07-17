@@ -3,6 +3,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDriverStore } from '../stores/driverStore'
 import { formatDate } from '../utils/formatDate'
+import { useToast } from '../composables/useToast'
+import { parseApiError } from '../utils/parseApiError'
 
 import Text from '../components/Text.vue'
 import Profile from '../components/Profile.vue'
@@ -11,13 +13,18 @@ import StatiscSimple from '../components/StatiscSimple.vue'
 import TableBase from '../components/TableBase.vue'
 import IconText from '../components/IconText.vue'
 import DriverFormModal from '../modal/DriverFormModal.vue'
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal.vue'
 
 const driverStore = useDriverStore()
 const { drivers, pagination, loading } = storeToRefs(driverStore)
+const { showToast } = useToast()
 
 const search = ref('')
 const editingDriver = ref(null)
 const showFormModal = ref(false)
+const deleteTarget = ref(null)
+const deletingDriver = ref(false)
+const deactivatingDriver = ref(false)
 
 const headers = ['Nome', 'Nº Carta', 'Validade', 'Telefone', 'Estado']
 
@@ -82,10 +89,40 @@ function openEdit(row) {
   showFormModal.value = true
 }
 
-async function deactivate(row) {
-  if (!confirm(`Desactivar o motorista "${row.name}"?`)) return
-  await driverStore.deactivateDriver(row.id)
-  fetchData(pagination.value.current_page)
+function askDelete(row) {
+  deleteTarget.value = row
+}
+
+function cancelDelete() {
+  deleteTarget.value = null
+}
+
+async function confirmDelete() {
+  deletingDriver.value = true
+  try {
+    await driverStore.deleteDriver(deleteTarget.value.id)
+    showToast('success', 'Motorista eliminado com sucesso.')
+    deleteTarget.value = null
+    fetchData(pagination.value.current_page)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    deletingDriver.value = false
+  }
+}
+
+async function confirmDeactivate() {
+  deactivatingDriver.value = true
+  try {
+    await driverStore.deactivateDriver(deleteTarget.value.id)
+    showToast('success', 'Motorista desactivado com sucesso.')
+    deleteTarget.value = null
+    fetchData(pagination.value.current_page)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    deactivatingDriver.value = false
+  }
 }
 
 function closeForm(saved) {
@@ -144,7 +181,7 @@ onMounted(() => fetchData())
             displayIcon="flex"
             displayEye="none"
             @row-edit="openEdit"
-            @row-delete="deactivate"
+            @row-delete="askDelete"
           />
 
           <div class="pagination" v-if="pagination.last_page > 1">
@@ -178,6 +215,16 @@ onMounted(() => fetchData())
     v-if="showFormModal"
     :driver="editingDriver"
     @close="closeForm"
+  />
+
+  <ConfirmDeleteModal
+    v-if="deleteTarget"
+    :title="`Eliminar o motorista ${deleteTarget.name}?`"
+    :loading-delete="deletingDriver"
+    :loading-deactivate="deactivatingDriver"
+    @cancel="cancelDelete"
+    @confirm-delete="confirmDelete"
+    @confirm-deactivate="confirmDeactivate"
   />
 </template>
 

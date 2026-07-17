@@ -23,7 +23,7 @@ const active = ref({
 })
 
 const rotasNests = [
-  { txt: 'Rotas', icon: 'fi fi-rs-route', route: '/dashboard/routes' },
+  { txt: 'Rotas', icon: 'fi fi-ts-map-location-track', route: '/dashboard/routes' },
   { txt: 'Paragens', icon: 'fi fi-rs-map-marker', route: '/dashboard/stops' },
 ]
 

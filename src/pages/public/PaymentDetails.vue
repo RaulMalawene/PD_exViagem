@@ -65,7 +65,7 @@ const methods = [
     { key: 'card', label: 'Cartão de crédito', sub: 'Visa, Mastercard', icon: cardIcon },
     { key: 'mpesa', label: 'M-Pesa', sub: 'Vodacom', icon: mpesaIcon },
     { key: 'emola', label: 'E-Mola', sub: 'Movitel', icon: emolaIcon },
-    { key: 'local', label: 'Pagar no local', sub: 'Pagar no dia da viagem', icon: null },
+    // { key: 'local', label: 'Pagar no local', sub: 'Pagar no dia da viagem', icon: null },
 ]
 
 async function fetchTripData() {

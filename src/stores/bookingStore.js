@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import bookingService from '../services/bookingService'
+import publicTripService from '../services/publicTripService'
 
 export const useBookingStore = defineStore('booking', {
   state: () => ({
@@ -9,6 +10,27 @@ export const useBookingStore = defineStore('booking', {
   }),
 
   actions: {
+    async createBookings(payload) {
+      return bookingService.create(payload)
+    },
+
+    async fetchTripAvailability(tripId, sessionToken) {
+      const res = await publicTripService.getAvailability(tripId, sessionToken)
+      return res.data
+    },
+
+    async holdSeat(tripId, seatNumber, sessionToken) {
+      return publicTripService.holdSeat(tripId, seatNumber, sessionToken)
+    },
+
+    async releaseSeat(tripId, seatNumber, sessionToken) {
+      return publicTripService.releaseSeat(tripId, seatNumber, sessionToken)
+    },
+
+    async releaseAllSeats(tripId, sessionToken) {
+      return publicTripService.releaseAllSeats(tripId, sessionToken)
+    },
+
     async fetchBookings(params = {}) {
       this.loading = true
 
@@ -41,6 +63,14 @@ export const useBookingStore = defineStore('booking', {
 
     async updateBookingPayment(id, payload) {
       return bookingService.updatePayment(id, payload)
+    },
+
+    async fetchPackages(id) {
+      return bookingService.listPackages(id)
+    },
+
+    async createPackage(id, payload) {
+      return bookingService.createPackage(id, payload)
     },
   },
 })

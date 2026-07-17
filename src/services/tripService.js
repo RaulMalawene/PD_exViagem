@@ -6,4 +6,5 @@ export default {
   create: (data) => api.post('/trips', data).then((r) => r.data),
   update: (id, data) => api.put(`/trips/${id}`, data).then((r) => r.data),
   remove: (id) => api.delete(`/trips/${id}`).then((r) => r.data),
+  generate: (data) => api.post('/trips/generate', data).then((r) => r.data),
 }
