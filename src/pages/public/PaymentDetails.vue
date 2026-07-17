@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { loadStripe } from '@stripe/stripe-js'
 import { usePublicBookingStore } from '../../stores/publicBookingStore'
 import { useToast } from '../../composables/useToast'
 import { parseApiError } from '../../utils/parseApiError'
@@ -28,12 +29,21 @@ const selectedMethod = ref('')
 const selectedCurrency = ref('mzn')
 const submitting = ref(false)
 
-const cardNumber = ref('')
-const cardExpiry = ref('')
-const cardCvv = ref('')
-const cardName = ref('')
 const mobilePhone = ref('')
 const emolaPhone = ref('')
+
+const sessionToken = route.query.session_token ?? bookingStore.flow.sessionToken
+
+let stripeInstance = null
+let stripeElements = null
+let paymentElement = null
+let isUnmounted = false
+const cardElementRef = ref(null)
+const cardLoading = ref(false)
+const cardReady = ref(false)
+const cardError = ref('')
+
+onUnmounted(() => { isUnmounted = true })
 
 const seats = computed(() => bookings.map((b) => b.seat_number).join(', '))
 const passengerCount = computed(() => bookings.length)
@@ -68,45 +78,113 @@ const methods = [
     // { key: 'local', label: 'Pagar no local', sub: 'Pagar no dia da viagem', icon: null },
 ]
 
+// "Cartão" e renderizado fora do v-for abaixo de proposito: um ref usado dentro de um
+// v-for e sempre embrulhado num array pelo Vue, mesmo so aparecendo numa iteracao - e o
+// Stripe Elements rejeita um array com "Invalid DOM element" ao tentar montar nele.
+const otherMethods = methods.filter((m) => m.key !== 'card')
+
 async function fetchTripData() {
     try {
-        tripData.value = await bookingStore.fetchAvailability(tripId)
+        const data = await bookingStore.fetchAvailability(tripId)
+        if (isUnmounted) return
+        tripData.value = data
     } catch (err) {
-        showToast('error', parseApiError(err))
+        if (!isUnmounted) showToast('error', parseApiError(err))
     } finally {
-        loading.value = false
+        if (!isUnmounted) loading.value = false
     }
 }
 
 onMounted(fetchTripData)
 
 function canSubmit() {
-    if (selectedMethod.value === 'card') {
-        return cardNumber.value && cardExpiry.value && cardCvv.value && cardName.value
-    }
+    if (selectedMethod.value === 'card') return cardReady.value && !cardLoading.value
     if (selectedMethod.value === 'mpesa') return mobilePhone.value
     if (selectedMethod.value === 'emola') return emolaPhone.value
     if (selectedMethod.value === 'local') return true
     return false
 }
 
-function formatCardNumber(e) {
-    let val = e.target.value.replace(/\D/g, '').slice(0, 16)
-    val = val.replace(/(.{4})/g, '$1 ').trim()
-    cardNumber.value = val
+async function initCardPayment() {
+    if (cardLoading.value) return
+    cardError.value = ''
+
+    if (!stripeElements) {
+        if (!sessionToken) {
+            cardError.value = 'Sessão inválida. Volte a iniciar a reserva.'
+            return
+        }
+
+        const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+        if (!publishableKey) {
+            cardError.value = 'Pagamento por cartão indisponível de momento.'
+            return
+        }
+
+        cardLoading.value = true
+
+        try {
+            const intent = await bookingStore.createPaymentIntent(sessionToken)
+            if (isUnmounted) return
+
+            stripeInstance = await loadStripe(publishableKey)
+            if (isUnmounted) return
+
+            stripeElements = stripeInstance.elements({ clientSecret: intent.client_secret })
+            paymentElement = stripeElements.create('payment')
+            paymentElement.on('change', (event) => { cardError.value = event.error?.message ?? '' })
+            paymentElement.on('ready', () => { cardLoading.value = false; cardReady.value = true })
+        } catch (err) {
+            if (!isUnmounted) {
+                cardError.value = parseApiError(err)
+                cardLoading.value = false
+            }
+            return
+        }
+    }
+
+    await nextTick()
+    if (isUnmounted || !cardElementRef.value) {
+        cardLoading.value = false
+        return
+    }
+
+    try {
+        paymentElement.mount(cardElementRef.value)
+    } catch (err) {
+        console.error('Stripe mount() falhou:', err)
+        cardError.value = 'Não foi possível carregar o formulário de cartão. Tente novamente.'
+        cardLoading.value = false
+    }
 }
 
-function formatExpiry(e) {
-    let val = e.target.value.replace(/\D/g, '').slice(0, 4)
-    if (val.length > 2) val = val.slice(0, 2) + '/' + val.slice(2)
-    cardExpiry.value = val
-}
+watch(selectedMethod, (method) => {
+    if (method === 'card') {
+        selectedCurrency.value = 'zar'
+        initCardPayment()
+    }
+})
 
 async function confirm() {
     if (!canSubmit() || submitting.value) return
     submitting.value = true
     try {
-        await new Promise((r) => setTimeout(r, 800))
+        if (selectedMethod.value === 'card') {
+            const { error } = await stripeInstance.confirmPayment({
+                elements: stripeElements,
+                confirmParams: { return_url: window.location.href },
+                redirect: 'if_required',
+            })
+
+            if (error) {
+                cardError.value = error.message ?? 'Não foi possível processar o pagamento.'
+                showToast('error', cardError.value)
+                return
+            }
+        } else {
+            await new Promise((r) => setTimeout(r, 800))
+        }
+
         bookingStore.clearFlow()
         router.push({
             path: '/booking/success',
@@ -115,6 +193,8 @@ async function confirm() {
                 route_name: tripData.value?.route?.name,
                 date: tripData.value?.departure_date,
                 time: tripData.value?.departure_time?.slice(0, 5),
+                session_token: sessionToken,
+                method: selectedMethod.value,
             },
         })
     } finally {
@@ -170,9 +250,45 @@ async function confirm() {
 
                 <div class="methodList">
 
-                    <div v-for="m in methods" :key="m.key" class="methodCard"
+                    <!-- CARTAO - fora do v-for de proposito (ver nota junto a otherMethods no script) -->
+                    <div class="methodCard" :class="{ selected: selectedMethod === 'card' }"
+                        @click="selectedMethod = 'card'">
+                        <div class="methodHeader">
+                            <div class="methodRadio" :class="{ checked: selectedMethod === 'card' }">
+                                <div v-if="selectedMethod === 'card'" class="radioInner" />
+                            </div>
+                            <div class="methodIconWrap">
+                                <img :src="cardIcon" alt="Cartão de crédito" class="methodIcon" />
+                            </div>
+                            <div class="methodText">
+                                <span class="methodLabel">Cartão de crédito</span>
+                                <span class="methodSub">Visa, Mastercard</span>
+                            </div>
+                        </div>
+
+                        <Transition name="expand">
+                            <div v-show="selectedMethod === 'card'" class="methodBody">
+                                <p class="fieldNote">Pagamentos por cartão são cobrados em Rand (ZAR).</p>
+                                <div class="field">
+                                    <label class="fieldLabel">Dados do cartão</label>
+                                    <div class="stripeElementWrap">
+                                        <!-- este elemento nunca fica display:none - a Stripe precisa de um
+                                             alvo com layout real para montar, senao rejeita com "Invalid DOM element" -->
+                                        <div ref="cardElementRef" class="stripeElement" @click.stop />
+                                        <div v-if="cardLoading" class="cardLoadingBox">
+                                            <div class="cardSpinner" />
+                                            <span>A preparar pagamento seguro...</span>
+                                        </div>
+                                    </div>
+                                    <p v-if="cardError" class="cardErrorText">{{ cardError }}</p>
+                                </div>
+                            </div>
+                        </Transition>
+                    </div>
+
+                    <!-- M-PESA / E-MOLA -->
+                    <div v-for="m in otherMethods" :key="m.key" class="methodCard"
                         :class="{ selected: selectedMethod === m.key }" @click="selectedMethod = m.key">
-                        <!-- HEADER DO CARD -->
                         <div class="methodHeader">
                             <div class="methodRadio" :class="{ checked: selectedMethod === m.key }">
                                 <div v-if="selectedMethod === m.key" class="radioInner" />
@@ -186,48 +302,6 @@ async function confirm() {
                                 <span class="methodSub">{{ m.sub }}</span>
                             </div>
                         </div>
-
-                        <!-- CAMPOS CARTAO -->
-                        <Transition name="expand">
-                            <div v-if="selectedMethod === 'card' && m.key === 'card'" class="methodBody">
-                                <div class="field">
-                                    <label class="fieldLabel">Moeda de pagamento</label>
-                                    <div class="currencyToggle">
-                                        <button type="button" class="currencyBtn"
-                                            :class="{ active: selectedCurrency === 'mzn' }"
-                                            @click.stop="selectedCurrency = 'mzn'">Metical (MT)</button>
-                                        <button type="button" class="currencyBtn"
-                                            :class="{ active: selectedCurrency === 'zar' }"
-                                            @click.stop="selectedCurrency = 'zar'">Rand (ZAR)</button>
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label class="fieldLabel">Número do cartão</label>
-                                    <div class="inputWrap">
-                                        <input :value="cardNumber" type="text" class="input"
-                                            placeholder="0000 0000 0000 0000" maxlength="19" @input="formatCardNumber"
-                                            @click.stop />
-                                        <i class="fi fi-rs-credit-card inputIconRight" />
-                                    </div>
-                                </div>
-                                <div class="fieldRow">
-                                    <div class="field">
-                                        <label class="fieldLabel">Validade</label>
-                                        <input :value="cardExpiry" type="text" class="input" placeholder="MM/AA"
-                                            maxlength="5" @input="formatExpiry" @click.stop />
-                                    </div>
-                                    <div class="field">
-                                        <label class="fieldLabel">CVV</label>
-                                        <input v-model="cardCvv" type="text" class="input" placeholder="123"
-                                            maxlength="4" @click.stop />
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label class="fieldLabel">Nome no cartão</label>
-                                    <input v-model="cardName" type="text" class="input" placeholder="" @click.stop />
-                                </div>
-                            </div>
-                        </Transition>
 
                         <!-- CAMPOS MPESA -->
                         <Transition name="expand">
@@ -600,30 +674,48 @@ async function confirm() {
     line-height: 1.5;
 }
 
-/* CURRENCY TOGGLE */
-.currencyToggle {
-    display: flex;
-    gap: 8px;
+/* STRIPE ELEMENT */
+.stripeElementWrap {
+    position: relative;
+    min-height: 40px;
 }
 
-.currencyBtn {
-    flex: 1;
-    height: 40px;
+.stripeElement {
     border: 1.5px solid #E0E0E0;
-    border-radius: 8px;
+    border-radius: 10px;
+    padding: 12px 14px;
     background: #fff;
-    color: #221F20;
-    font-size: 13px;
-    font-weight: 600;
-    font-family: 'Ubuntu', sans-serif;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    min-height: 40px;
 }
 
-.currencyBtn.active {
-    background: #922877;
-    border-color: #922877;
-    color: #fff;
+.cardLoadingBox {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 4px;
+    font-size: 13px;
+    color: #888;
+    background: #fff;
+    border: 1.5px solid #E0E0E0;
+    border-radius: 10px;
+}
+
+.cardSpinner {
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid #f0f0f0;
+    border-top-color: #922877;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+.cardErrorText {
+    font-size: 12px;
+    color: #E53935;
+    margin-top: 2px;
 }
 
 /* BOTTOM */

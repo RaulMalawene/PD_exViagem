@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useBookingStore } from '../stores/bookingStore'
 import { formatDate } from '../utils/formatDate'
+import { formatPhone } from '../utils/formatPhone'
 import Badge from '../components/Badge.vue'
 import PaymentManagerModal from './PaymentManagerModal.vue'
 
@@ -93,11 +94,11 @@ onMounted(() => {
                 </div>
                 <div class="infoItem">
                   <span class="infoLabel">Telefone</span>
-                  <span class="infoValue">{{ localBooking.passenger?.phone ?? '--' }}</span>
+                  <span class="infoValue">{{ formatPhone(localBooking.passenger?.phone) ?? '--' }}</span>
                 </div>
                 <div class="infoItem">
                   <span class="infoLabel">Contacto de emergência</span>
-                  <span class="infoValue">{{ localBooking.passenger?.emergency_contact_phone ?? '--' }}</span>
+                  <span class="infoValue">{{ formatPhone(localBooking.passenger?.emergency_contact_phone) ?? '--' }}</span>
                 </div>
               </div>
             </div>

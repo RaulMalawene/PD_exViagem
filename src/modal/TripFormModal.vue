@@ -33,6 +33,7 @@ const form = ref({
   departure_time: (props.trip?.departure_time ?? '17:00').slice(0, 5),
   vehicle_id: props.trip?.vehicle?.id ?? '',
   driver_id: props.trip?.driver?.id ?? '',
+  permit_number: props.trip?.permit_number ?? '',
   status: props.trip?.status ?? 'scheduled',
   notes: props.trip?.notes ?? '',
 })
@@ -92,6 +93,7 @@ async function handleSave() {
       const payload = {
         vehicle_id: form.value.vehicle_id || null,
         driver_id: form.value.driver_id || null,
+        permit_number: form.value.permit_number || null,
         departure_time: form.value.departure_time,
         status: form.value.status,
         notes: form.value.notes || null,
@@ -106,6 +108,7 @@ async function handleSave() {
         departure_time: form.value.departure_time,
         vehicle_id: form.value.vehicle_id || null,
         driver_id: form.value.driver_id || null,
+        permit_number: form.value.permit_number || null,
         notes: form.value.notes || null,
       }
       const res = await tripStore.createTrip(payload)
@@ -185,6 +188,11 @@ onMounted(() => {
               <div class="fieldGroup">
                 <InputDropDown label="Motorista" :modelValue="form.driver_id" :options="driverOptions"
                   @update:modelValue="form.driver_id = $event" />
+              </div>
+
+              <div class="fieldGroup">
+                <BaseInput label="Permit Nº" :modelValue="form.permit_number"
+                  @update:modelValue="form.permit_number = $event" />
               </div>
 
               <div class="fieldGroup" v-if="localTrip">

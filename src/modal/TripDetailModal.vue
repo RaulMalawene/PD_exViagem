@@ -49,6 +49,7 @@ const ticketTripInfo = computed(() => ({
 
 const showCancelConfirm = ref(false)
 const isCancelling = ref(false)
+const isDownloadingManifest = ref(false)
 
 const statusOptions = [
   { id: 'scheduled', name: 'Agendada' },
@@ -66,6 +67,7 @@ const editForm = ref({
   departure_time: (localTrip.value.departure_time ?? '').slice(0, 5),
   vehicle_id: localTrip.value.vehicle?.id ?? '',
   driver_id: localTrip.value.driver?.id ?? '',
+  permit_number: localTrip.value.permit_number ?? '',
   status: localTrip.value.status ?? 'scheduled',
   notes: localTrip.value.notes ?? '',
 })
@@ -162,6 +164,25 @@ function viewTicket(b) {
   }
 }
 
+async function downloadManifest() {
+  if (isDownloadingManifest.value) return
+  isDownloadingManifest.value = true
+
+  try {
+    const blob = await tripStore.downloadManifest(localTrip.value.id)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `manifesto-viagem-${localTrip.value.id}.pdf`
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    isDownloadingManifest.value = false
+  }
+}
+
 function toggleEdit() {
   activeView.value = activeView.value === 'edit' ? 'manifest' : 'edit'
 }
@@ -189,6 +210,7 @@ async function handleSaveEdit() {
     const payload = {
       vehicle_id: editForm.value.vehicle_id || null,
       driver_id: editForm.value.driver_id || null,
+      permit_number: editForm.value.permit_number || null,
       departure_time: editForm.value.departure_time,
       status: editForm.value.status,
       notes: editForm.value.notes || null,
@@ -325,10 +347,18 @@ onMounted(() => {
                 <span class="infoValue">{{ localTrip.driver?.name ?? '--' }}</span>
               </div>
 
+              <div class="infoRow">
+                <div class="infoRowHeader">
+                  <i class="fi fi-rs-id-badge infoRowIcon" />
+                  <span class="infoLabel">Permit Nº</span>
+                </div>
+                <span class="infoValue">{{ localTrip.permit_number ?? '--' }}</span>
+              </div>
+
               <div class="actions">
-                <button class="actionBtn green">
+                <button class="actionBtn green" :disabled="isDownloadingManifest" @click="downloadManifest">
                   <i class="fi fi-rs-file-pdf" />
-                  Gerar manifesto PDF
+                  {{ isDownloadingManifest ? 'A gerar...' : 'Gerar manifesto PDF' }}
                 </button>
                 <button class="actionBtn magenta" :class="{ active: activeView === 'edit' }" @click="toggleEdit">
                   <i class="fi fi-rs-pencil" />
@@ -459,6 +489,11 @@ onMounted(() => {
                   <div class="fieldGroup">
                     <InputDropDown label="Motorista" :modelValue="editForm.driver_id" :options="driverOptions"
                       @update:modelValue="editForm.driver_id = $event" />
+                  </div>
+
+                  <div class="fieldGroup">
+                    <BaseInput label="Permit Nº" :modelValue="editForm.permit_number"
+                      @update:modelValue="editForm.permit_number = $event" />
                   </div>
 
                   <div class="fieldGroup">

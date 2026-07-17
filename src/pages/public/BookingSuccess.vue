@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { toPng } from 'html-to-image'
+import { usePublicBookingStore } from '../../stores/publicBookingStore'
 import { useToast } from '../../composables/useToast'
 import { formatDate } from '../../utils/formatDate'
 import TicketModal from '../../components/TicketModal.vue'
@@ -9,13 +10,59 @@ import TicketCard from '../../components/TicketCard.vue'
 
 const router = useRouter()
 const route = useRoute()
+const bookingStore = usePublicBookingStore()
 const { showToast } = useToast()
 
 const bookings = JSON.parse(route.query.bookings ?? '[]')
+const sessionToken = route.query.session_token
+const paymentMethodUsed = route.query.method ?? null
+
 const selectedTicket = ref(null)
 const renderingForCapture = ref(false)
 const downloading = ref(false)
 const captureRefs = ref([])
+
+const statusByTicket = ref({})
+
+async function verifyStatus() {
+  if (!sessionToken) return
+
+  const maxAttempts = paymentMethodUsed === 'card' ? 5 : 1
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const results = await bookingStore.fetchGroupStatus(sessionToken)
+      const map = {}
+      results.forEach((r) => { map[r.ticket_number] = r })
+      statusByTicket.value = map
+
+      const settled = results.every((r) => r.payment_status !== 'pending' || paymentMethodUsed !== 'card')
+      if (settled) break
+    } catch {
+      break
+    }
+
+    if (attempt < maxAttempts - 1) await new Promise((r) => setTimeout(r, 1500))
+  }
+}
+
+onMounted(verifyStatus)
+
+const displayBookings = computed(() =>
+  bookings.map((b) => ({
+    ...b,
+    status: statusByTicket.value[b.ticket_number]?.status ?? b.status,
+    payment_status: statusByTicket.value[b.ticket_number]?.payment_status ?? b.payment_status,
+  }))
+)
+
+const allPaid = computed(() =>
+  displayBookings.value.length > 0 && displayBookings.value.every((b) => b.payment_status === 'paid')
+)
+
+const somePendingPayment = computed(() =>
+  displayBookings.value.some((b) => b.payment_status === 'pending')
+)
 
 const tripInfo = computed(() => ({
   route: route.query.route_name ?? 'Maputo → Johannesburg',
@@ -30,7 +77,7 @@ const tripSummary = computed(() => {
   return parts.join(' · ')
 })
 
-const isPlural = computed(() => bookings.length > 1)
+const isPlural = computed(() => displayBookings.value.length > 1)
 
 function viewTicket(booking) {
   selectedTicket.value = booking
@@ -92,8 +139,10 @@ function newBooking() {
       <div class="bannerCheck">
         <i class="fi fi-sr-check checkIcon" />
       </div>
-      <h1 class="bannerTitle">Reserva confirmada!</h1>
-      <p class="bannerSub">O seu lugar está garantido.</p>
+      <h1 class="bannerTitle">{{ allPaid ? 'Pagamento confirmado!' : 'Reserva registada!' }}</h1>
+      <p class="bannerSub">
+        {{ somePendingPayment ? 'O seu lugar está reservado. Pagamento pendente de confirmação.' : 'O seu lugar está garantido.' }}
+      </p>
       <p class="bannerTrip">{{ tripSummary }}</p>
     </div>
 
@@ -103,7 +152,7 @@ function newBooking() {
       <!-- BILHETES -->
       <div class="ticketList">
         <div
-          v-for="(booking, idx) in bookings"
+          v-for="(booking, idx) in displayBookings"
           :key="idx"
           class="ticketRow"
         >
@@ -124,10 +173,10 @@ function newBooking() {
       <!-- ACÇÕES -->
       <div class="actionsCard">
         <p class="actionsTitle">
-          {{ isPlural ? `O que deseja fazer com os ${bookings.length} bilhetes?` : 'O que deseja fazer com o bilhete?' }}
+          {{ isPlural ? `O que deseja fazer com os ${displayBookings.length} bilhetes?` : 'O que deseja fazer com o bilhete?' }}
         </p>
 
-        <button class="actionRow" :class="{ disabled: downloading }" :disabled="downloading" @click="downloadTicket(bookings)">
+        <button class="actionRow" :class="{ disabled: downloading }" :disabled="downloading" @click="downloadTicket(displayBookings)">
           <div class="actionIconWrap dark">
             <i class="fi fi-rs-download actionIcon" />
           </div>
@@ -144,7 +193,7 @@ function newBooking() {
 
         <div class="actionDivider" />
 
-        <button class="actionRow" @click="sendWhatsApp(bookings)">
+        <button class="actionRow" @click="sendWhatsApp(displayBookings)">
           <div class="actionIconWrap green">
           <i class="fi fi-brands-whatsapp actionIcon" />
           </div>
@@ -191,7 +240,7 @@ function newBooking() {
     <!-- CARTOES ESCONDIDOS PARA CAPTURA DE IMAGEM -->
     <div v-if="renderingForCapture" class="captureArea">
       <TicketCard
-        v-for="(booking, idx) in bookings"
+        v-for="(booking, idx) in displayBookings"
         :key="idx"
         :ref="el => (captureRefs[idx] = el)"
         :booking="booking"

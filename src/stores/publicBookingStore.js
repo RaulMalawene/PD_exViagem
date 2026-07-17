@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import publicRouteService from '../services/publicRouteService'
 import publicTripService from '../services/publicTripService'
 import publicBookingService from '../services/publicBookingService'
+import paymentService from '../services/paymentService'
 
 const FLOW_STORAGE_KEY = 'booking_flow_state'
 
@@ -94,6 +95,16 @@ export const usePublicBookingStore = defineStore('publicBooking', {
 
     async submitBooking(payload) {
       return publicBookingService.createGroup(payload)
+    },
+
+    async fetchGroupStatus(sessionToken) {
+      const res = await publicBookingService.groupStatus(sessionToken)
+      return res.data
+    },
+
+    async createPaymentIntent(sessionToken) {
+      const res = await paymentService.createIntent({ session_token: sessionToken })
+      return res.data
     },
 
     saveFlow(partial) {
