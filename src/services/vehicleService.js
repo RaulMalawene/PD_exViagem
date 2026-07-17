@@ -6,4 +6,5 @@ export default {
   create: (data) => api.post('/vehicles', data).then((r) => r.data),
   update: (id, data) => api.put(`/vehicles/${id}`, data).then((r) => r.data),
   remove: (id) => api.delete(`/vehicles/${id}`).then((r) => r.data),
+  deactivate: (id) => api.post(`/vehicles/${id}/deactivate`).then((r) => r.data),
 }
