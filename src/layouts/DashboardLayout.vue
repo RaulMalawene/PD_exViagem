@@ -18,7 +18,6 @@ const isDriver = computed(() => role.value === 'driver')
 const adminMenu = [
   { txt: 'Dashboard', icon: 'fi fi-rs-home', route: '/dashboard/home' },
   { txt: 'Reservas', icon: 'fi fi-rs-ticket', route: '/dashboard/bookings' },
-  { txt: 'Viagens', icon: 'fi fi-rs-road', route: '/dashboard/trips' },
   { txt: 'Horários', icon: 'fi fi-rs-clock', route: '/dashboard/schedules' },
   { txt: 'Rotas', icon: 'fi fi-rs-map-marker-road', route: '/dashboard/routes' },
   { txt: 'Veículos', icon: 'fi fi-rs-bus', route: '/dashboard/vehicles' },
@@ -29,7 +28,6 @@ const adminMenu = [
 const staffMenu = [
   { txt: 'Dashboard', icon: 'fi fi-rs-home', route: '/dashboard/home' },
   { txt: 'Reservas', icon: 'fi fi-rs-ticket', route: '/dashboard/bookings' },
-  { txt: 'Viagens', icon: 'fi fi-rs-road', route: '/dashboard/trips' },
 ]
 
 const driverMenu = [

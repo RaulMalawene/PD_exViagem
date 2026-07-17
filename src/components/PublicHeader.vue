@@ -3,7 +3,7 @@ import LogoPD from '../assets/LogoPD.svg'
 
 function openWhatsApp() {
     const numero = '258862051706'
-    const mensagem = 'Olá, gostaria de ter mais informações acerca do tracking e requisições'
+    const mensagem = 'Olá, gostaria de ter mais informações sobre os servicos de viagens da Portador Diário.'
     const link = 'https://wa.me/' + numero + '?text=' + encodeURIComponent(mensagem)
     window.open(link, '_blank')
 }

@@ -19,7 +19,7 @@ const statusLabel = computed(() => {
 
 const methodLabel = computed(() => {
     const map = {
-        cash: 'Dinheiro no local',
+        cash: 'Pagar no local',
         transfer_mz: 'Transferência',
         transfer_za: 'Transferência',
         mpesa: 'M-Pesa',
