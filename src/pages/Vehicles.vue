@@ -2,6 +2,8 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useVehicleStore } from '../stores/vehicleStore'
+import { useToast } from '../composables/useToast'
+import { parseApiError } from '../utils/parseApiError'
 
 import Text from '../components/Text.vue'
 import Profile from '../components/Profile.vue'
@@ -10,15 +12,20 @@ import StatiscSimple from '../components/StatiscSimple.vue'
 import TableBase from '../components/TableBase.vue'
 import IconText from '../components/IconText.vue'
 import VehicleFormModal from '../modal/VehicleFormModal.vue'
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal.vue'
 
 const vehicleStore = useVehicleStore()
 const { vehicles, pagination, loading } = storeToRefs(vehicleStore)
+const { showToast } = useToast()
 
 const search = ref('')
 const editingVehicle = ref(null)
 const showFormModal = ref(false)
+const deleteTarget = ref(null)
+const deletingVehicle = ref(false)
+const deactivatingVehicle = ref(false)
 
-const headers = ['Matrícula', 'Modelo', 'Marca', 'Capacidade', 'Estado']
+const headers = ['Matrícula', 'Modelo', 'Marca', 'Capacidade', 'Layout', 'Estado']
 
 const rows = computed(() =>
   vehicles.value.map((v) => ({
@@ -27,6 +34,7 @@ const rows = computed(() =>
     model: v.model,
     brand: v.brand,
     capacity: v.capacity,
+    layout: v.seat_layout?.rows?.length ? 'Sim' : 'Não',
     is_active: v.is_active ? 'Activo' : 'Inactivo',
   }))
 )
@@ -81,10 +89,40 @@ function openEdit(row) {
   showFormModal.value = true
 }
 
-async function deactivate(row) {
-  if (!confirm(`Desactivar o veículo "${row.plate}"?`)) return
-  await vehicleStore.deactivateVehicle(row.id)
-  fetchData(pagination.value.current_page)
+function askDelete(row) {
+  deleteTarget.value = row
+}
+
+function cancelDelete() {
+  deleteTarget.value = null
+}
+
+async function confirmDelete() {
+  deletingVehicle.value = true
+  try {
+    await vehicleStore.deleteVehicle(deleteTarget.value.id)
+    showToast('success', 'Veículo eliminado com sucesso.')
+    deleteTarget.value = null
+    fetchData(pagination.value.current_page)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    deletingVehicle.value = false
+  }
+}
+
+async function confirmDeactivate() {
+  deactivatingVehicle.value = true
+  try {
+    await vehicleStore.deactivateVehicle(deleteTarget.value.id)
+    showToast('success', 'Veículo desactivado com sucesso.')
+    deleteTarget.value = null
+    fetchData(pagination.value.current_page)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    deactivatingVehicle.value = false
+  }
 }
 
 function closeForm(saved) {
@@ -143,7 +181,7 @@ onMounted(() => fetchData())
             displayIcon="flex"
             displayEye="none"
             @row-edit="openEdit"
-            @row-delete="deactivate"
+            @row-delete="askDelete"
           />
 
           <div class="pagination" v-if="pagination.last_page > 1">
@@ -177,6 +215,16 @@ onMounted(() => fetchData())
     v-if="showFormModal"
     :vehicle="editingVehicle"
     @close="closeForm"
+  />
+
+  <ConfirmDeleteModal
+    v-if="deleteTarget"
+    :title="`Eliminar o veículo ${deleteTarget.plate}?`"
+    :loading-delete="deletingVehicle"
+    :loading-deactivate="deactivatingVehicle"
+    @cancel="cancelDelete"
+    @confirm-delete="confirmDelete"
+    @confirm-deactivate="confirmDeactivate"
   />
 </template>
 

@@ -1,8 +1,19 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import bookingService from '../services/bookingService'
+import { useTripStore } from '../stores/tripStore'
+import { useVehicleStore } from '../stores/vehicleStore'
+import { useDriverStore } from '../stores/driverStore'
+import { useToast } from '../composables/useToast'
+import { parseApiError } from '../utils/parseApiError'
+import { formatDate } from '../utils/formatDate'
 import DataCard from '../components/DataCard.vue'
 import Badge from '../components/Badge.vue'
+import BaseInput from '../components/BaseInput.vue'
+import InputDropDown from '../components/InputDropDown.vue'
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal.vue'
+import TicketModal from '../components/TicketModal.vue'
 
 const props = defineProps({
   trip: {
@@ -13,16 +24,58 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
+const router = useRouter()
+const tripStore = useTripStore()
+const vehicleStore = useVehicleStore()
+const driverStore = useDriverStore()
+const { showToast } = useToast()
+
+const localTrip = ref({ ...props.trip })
+const changed = ref(false)
+const activeView = ref('manifest')
+
 const loadingBookings = ref(false)
 const bookings = ref([])
 const pagination = ref({ current_page: 1, last_page: 1, total: 0 })
 const search = ref('')
 const includeCancelled = ref(false)
+const selectedTicket = ref(null)
+
+const ticketTripInfo = computed(() => ({
+  route: localTrip.value.route?.name,
+  date: localTrip.value.departure_date,
+  time: localTrip.value.departure_time,
+}))
+
+const showCancelConfirm = ref(false)
+const isCancelling = ref(false)
+
+const statusOptions = [
+  { id: 'scheduled', name: 'Agendada' },
+  { id: 'boarding', name: 'Em embarque' },
+  { id: 'in_progress', name: 'Em curso' },
+  { id: 'completed', name: 'Concluída' },
+  { id: 'cancelled', name: 'Cancelada' },
+  { id: 'delayed', name: 'Com atraso' },
+]
+
+const vehicleOptions = computed(() => vehicleStore.vehicles.map((v) => ({ id: v.id, name: `${v.plate} - ${v.brand} ${v.model}` })))
+const driverOptions = computed(() => driverStore.drivers.map((d) => ({ id: d.id, name: d.name })))
+
+const editForm = ref({
+  departure_time: (localTrip.value.departure_time ?? '').slice(0, 5),
+  vehicle_id: localTrip.value.vehicle?.id ?? '',
+  driver_id: localTrip.value.driver?.id ?? '',
+  status: localTrip.value.status ?? 'scheduled',
+  notes: localTrip.value.notes ?? '',
+})
+const editErrors = ref({ departure_time: '' })
+const isSavingEdit = ref(false)
 
 const occupancyPct = computed(() => {
-  const cap = props.trip.vehicle?.capacity
+  const cap = localTrip.value.vehicle?.capacity
   if (!cap) return null
-  const occupied = (props.trip.confirmed_count ?? 0) + (props.trip.pending_count ?? 0)
+  const occupied = (localTrip.value.confirmed_count ?? 0) + (localTrip.value.pending_count ?? 0)
   return Math.round((occupied / cap) * 100)
 })
 
@@ -43,7 +96,7 @@ const statusLabel = computed(() => {
     cancelled: 'Cancelada',
     delayed: 'Com atraso',
   }
-  return map[props.trip.status] ?? props.trip.status
+  return map[localTrip.value.status] ?? localTrip.value.status
 })
 
 const filteredBookings = computed(() => {
@@ -73,7 +126,7 @@ const pageNumbers = computed(() => {
 async function fetchBookings(page = 1) {
   loadingBookings.value = true
   try {
-    const res = await bookingService.listByTrip(props.trip.id, {
+    const res = await bookingService.listByTrip(localTrip.value.id, {
       page,
       per_page: 12,
       include_cancelled: includeCancelled.value,
@@ -95,14 +148,113 @@ function toggleIncludeCancelled() {
   fetchBookings(1)
 }
 
-onMounted(() => fetchBookings())
+function viewTicket(b) {
+  selectedTicket.value = {
+    ticket_number: b.ticket_number,
+    seat_number: b.seat_number,
+    passenger_name: b.passenger?.name,
+    passenger_passport: b.passenger?.passport_number,
+    passenger_passport_expiry: b.passenger?.passport_expiry,
+    boarding_stop: b.boarding_stop?.name,
+    boarding_time: b.boarding_stop?.boarding_time,
+    status: b.status,
+    payment_method: b.invoice?.payment_method,
+  }
+}
+
+function toggleEdit() {
+  activeView.value = activeView.value === 'edit' ? 'manifest' : 'edit'
+}
+
+function validateEdit() {
+  editErrors.value = { departure_time: '' }
+  let valid = true
+
+  if (!editForm.value.departure_time) {
+    editErrors.value.departure_time = 'A hora de partida é obrigatória.'
+    valid = false
+  } else if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(editForm.value.departure_time)) {
+    editErrors.value.departure_time = 'Formato inválido. Use HH:MM em 24 horas, ex: 17:00.'
+    valid = false
+  }
+
+  return valid
+}
+
+async function handleSaveEdit() {
+  if (!validateEdit()) return
+  isSavingEdit.value = true
+
+  try {
+    const payload = {
+      vehicle_id: editForm.value.vehicle_id || null,
+      driver_id: editForm.value.driver_id || null,
+      departure_time: editForm.value.departure_time,
+      status: editForm.value.status,
+      notes: editForm.value.notes || null,
+    }
+    const res = await tripStore.updateTrip(localTrip.value.id, payload)
+    localTrip.value = res.data
+    changed.value = true
+    activeView.value = 'manifest'
+    showToast('success', 'Viagem actualizada com sucesso.')
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    isSavingEdit.value = false
+  }
+}
+
+async function confirmCancel() {
+  isCancelling.value = true
+  try {
+    const result = await tripStore.cancelTrip(localTrip.value.id)
+    localTrip.value = { ...localTrip.value, status: 'cancelled' }
+    changed.value = true
+    showCancelConfirm.value = false
+
+    let message = 'Viagem cancelada com sucesso.'
+    if (result?.auto_cancelled) {
+      message += ` ${result.auto_cancelled} reserva(s) pendente(s) foram canceladas automaticamente.`
+    }
+    if (result?.needs_manual_refund) {
+      message += ` ${result.needs_manual_refund} reserva(s) já paga(s) precisam de reembolso manual.`
+    }
+    showToast('success', message)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    isCancelling.value = false
+  }
+}
+
+function handleClose() {
+  emit('close', changed.value)
+}
+
+function goToBookings() {
+  router.push({
+    path: '/dashboard/bookings',
+    query: {
+      trip_id: localTrip.value.id,
+      route: localTrip.value.route?.name ?? undefined,
+      date: localTrip.value.departure_date ?? undefined,
+    },
+  })
+}
+
+onMounted(() => {
+  fetchBookings()
+  vehicleStore.fetchVehicles({ per_page: 100 })
+  driverStore.fetchDrivers({ per_page: 100 })
+})
 </script>
 
 
 <template>
 
   <Transition name="overlay">
-    <div class="modalOverlay" @click.self="emit('close')">
+    <div class="modalOverlay" @click.self="handleClose">
       <Transition name="modal" appear>
         <div class="modalCard">
 
@@ -110,17 +262,21 @@ onMounted(() => fetchBookings())
           <div class="modalHeader">
             <div class="headerLeft">
               <i class="fi fi-rs-route headerIcon" />
-              <span class="headerRoute">{{ trip.route?.name ?? '--' }}</span>
+              <span class="headerRoute">{{ localTrip.route?.name ?? '--' }}</span>
               <div class="headerDivider" />
               <i class="fi fi-rs-calendar headerIcon" />
-              <span class="headerMeta">{{ trip.departure_date }}</span>
+              <span class="headerMeta">{{ localTrip.departure_date }}</span>
               <div class="headerDivider" />
               <i class="fi fi-rs-clock headerIcon" />
-              <span class="headerMeta">{{ trip.departure_time }}</span>
+              <span class="headerMeta">{{ localTrip.departure_time }}</span>
             </div>
             <div class="headerRight">
+              <button class="bookingsLink" @click="goToBookings">
+                <i class="fi fi-rs-ticket" />
+                Ver reservas desta viagem
+              </button>
               <span class="statusBadge">{{ statusLabel }}</span>
-              <button class="closeBtn" @click="emit('close')">
+              <button class="closeBtn" @click="handleClose">
                 <i class="fi fi-br-cross" />
               </button>
             </div>
@@ -134,10 +290,10 @@ onMounted(() => fetchBookings())
             <div class="leftPanel">
 
               <div class="statsGrid">
-                <DataCard title="Confirmados" :value="String(trip.confirmed_count ?? 0)" icon="fi fi-sr-check-circle" />
-                <DataCard title="Pendentes" :value="String(trip.pending_count ?? 0)" icon="fi fi-sr-clock" />
-                <DataCard title="Cancelados" :value="String(trip.cancelled_count ?? 0)" icon="fi fi-sr-cross-circle" />
-                <DataCard v-if="trip.vehicle?.capacity" title="Capacidade" :value="String(trip.vehicle.capacity)"
+                <DataCard title="Confirmados" :value="String(localTrip.confirmed_count ?? 0)" icon="fi fi-sr-check-circle" />
+                <DataCard title="Pendentes" :value="String(localTrip.pending_count ?? 0)" icon="fi fi-sr-clock" />
+                <DataCard title="Cancelados" :value="String(localTrip.cancelled_count ?? 0)" icon="fi fi-sr-cross-circle" />
+                <DataCard v-if="localTrip.vehicle?.capacity" title="Capacidade" :value="String(localTrip.vehicle.capacity)"
                   icon="fi fi-sr-seat-airline" />
               </div>
 
@@ -157,7 +313,7 @@ onMounted(() => fetchBookings())
                   <span class="infoLabel">Veículo</span>
                 </div>
                 <span class="infoValue">
-                  {{ trip.vehicle ? `${trip.vehicle.brand} ${trip.vehicle.model} · ${trip.vehicle.plate}` : '--' }}
+                  {{ localTrip.vehicle ? `${localTrip.vehicle.brand} ${localTrip.vehicle.model} · ${localTrip.vehicle.plate}` : '--' }}
                 </span>
               </div>
 
@@ -166,7 +322,7 @@ onMounted(() => fetchBookings())
                   <i class="fi fi-rs-steering-wheel infoRowIcon" />
                   <span class="infoLabel">Motorista</span>
                 </div>
-                <span class="infoValue">{{ trip.driver?.name ?? '--' }}</span>
+                <span class="infoValue">{{ localTrip.driver?.name ?? '--' }}</span>
               </div>
 
               <div class="actions">
@@ -174,11 +330,11 @@ onMounted(() => fetchBookings())
                   <i class="fi fi-rs-file-pdf" />
                   Gerar manifesto PDF
                 </button>
-                <button class="actionBtn magenta">
+                <button class="actionBtn magenta" :class="{ active: activeView === 'edit' }" @click="toggleEdit">
                   <i class="fi fi-rs-pencil" />
-                  Editar viagem
+                  {{ activeView === 'edit' ? 'Voltar ao manifesto' : 'Editar viagem' }}
                 </button>
-                <button class="actionBtn red">
+                <button v-if="localTrip.status !== 'cancelled'" class="actionBtn red" @click="showCancelConfirm = true">
                   <i class="fi fi-rs-ban" />
                   Cancelar viagem
                 </button>
@@ -189,81 +345,141 @@ onMounted(() => fetchBookings())
           <!-- DIVIDER  -->
           <div class="verticalDivider" />
           <div class="rightPanel">
+            <Transition name="fade-slide" mode="out-in">
 
-            <div class="manifestTop">
-              <div class="manifestTitleRow">
-                <span class="manifestTitle">Manifesto de passageiros</span>
-                <span class="manifestCount">{{ pagination.total }}</span>
-                <span class="manifestCountLabel">passageiros</span>
-              </div>
+              <!-- VISTA: MANIFESTO -->
+              <div v-if="activeView === 'manifest'" key="manifest" class="manifestView">
+                <div class="manifestTop">
+                  <div class="manifestTitleRow">
+                    <span class="manifestTitle">Manifesto de passageiros</span>
+                    <span class="manifestCount">{{ pagination.total }}</span>
+                    <span class="manifestCountLabel">passageiros</span>
+                  </div>
 
-              <div class="manifestSearchCol">
-                <div class="manifestSearch">
-                  <i class="fi fi-rs-search searchIcon" />
-                  <input v-model="search" type="text" placeholder="Pesquisar passageiro..." class="searchInput" />
-                </div>
-
-                <label class="cancelledToggle">
-                  <input type="checkbox" :checked="includeCancelled" @change="toggleIncludeCancelled" />
-                  Mostrar cancelados
-                </label>
-              </div>
-            </div>
-
-            <div class="manifestBody">
-              <div v-if="loadingBookings" class="stateBox">
-                <div class="spinner" />
-              </div>
-
-              <div v-else-if="bookings.length === 0" class="stateBox">
-                <i class="fi fi-sr-users emptyIcon" />
-                <span class="emptyText">Sem passageiros registados</span>
-              </div>
-
-              <div v-else-if="filteredBookings.length === 0" class="stateBox">
-                <i class="fi fi-sr-search emptyIcon" />
-                <span class="emptyText">Sem resultados para "{{ search }}"</span>
-              </div>
-
-              <template v-else>
-                <div class="manifestList">
-                  <div v-for="b in filteredBookings" :key="b.id" class="manifestRow" :class="{ cancelledRow: b.status === 'cancelled' }">
-                    <div class="seatBadge">{{ b.seat_number ?? '--' }}</div>
-                    <div class="passengerInfo">
-                      <span class="passengerName">{{ b.passenger?.name ?? '--' }}</span>
-                      <span class="ticketNum">{{ b.ticket_number }}</span>
+                  <div class="manifestSearchCol">
+                    <div class="manifestSearch">
+                      <i class="fi fi-rs-search searchIcon" />
+                      <input v-model="search" type="text" placeholder="Pesquisar passageiro..." class="searchInput" />
                     </div>
-                    <div class="rowBadges">
-                      <Badge v-if="b.status === 'cancelled'" status="cancelled" />
-                      <Badge :status="b.payment_status" />
-                    </div>
+
+                    <label class="cancelledToggle">
+                      <input type="checkbox" :checked="includeCancelled" @change="toggleIncludeCancelled" />
+                      Mostrar cancelados
+                    </label>
                   </div>
                 </div>
 
-                <div class="manifestPagination" v-if="pagination.last_page > 1 && !search">
-                  <button class="pageBtn" :disabled="pagination.current_page === 1"
-                    @click="goToPage(pagination.current_page - 1)">
-                    <i class="fi fi-sr-angle-left" />
-                  </button>
+                <div class="manifestBody">
+                  <div v-if="loadingBookings" class="stateBox">
+                    <div class="spinner" />
+                  </div>
 
-                  <template v-for="(page, i) in pageNumbers" :key="i">
-                    <span v-if="page === '...'" class="pageEllipsis">&hellip;</span>
-                    <button v-else class="pageNumBtn" :class="{ active: page === pagination.current_page }"
-                      @click="goToPage(page)">
-                      {{ page }}
-                    </button>
+                  <div v-else-if="bookings.length === 0" class="stateBox">
+                    <i class="fi fi-sr-users emptyIcon" />
+                    <span class="emptyText">Sem passageiros registados</span>
+                  </div>
+
+                  <div v-else-if="filteredBookings.length === 0" class="stateBox">
+                    <i class="fi fi-sr-search emptyIcon" />
+                    <span class="emptyText">Sem resultados para "{{ search }}"</span>
+                  </div>
+
+                  <template v-else>
+                    <div class="manifestList">
+                      <div v-for="b in filteredBookings" :key="b.id" class="manifestRow" :class="{ cancelledRow: b.status === 'cancelled' }"
+                        title="Ver bilhete" @click="viewTicket(b)">
+                        <div class="seatBadge">{{ b.seat_number ?? '--' }}</div>
+                        <div class="passengerInfo">
+                          <span class="passengerName">{{ b.passenger?.name ?? '--' }}</span>
+                          <span class="ticketNum">{{ b.ticket_number }}</span>
+                        </div>
+                        <div class="rowBadges">
+                          <Badge v-if="b.status === 'cancelled'" status="cancelled" />
+                          <Badge v-if="b.invoice" :status="b.invoice.status" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="manifestPagination" v-if="pagination.last_page > 1 && !search">
+                      <button class="pageBtn" :disabled="pagination.current_page === 1"
+                        @click="goToPage(pagination.current_page - 1)">
+                        <i class="fi fi-sr-angle-left" />
+                      </button>
+
+                      <template v-for="(page, i) in pageNumbers" :key="i">
+                        <span v-if="page === '...'" class="pageEllipsis">&hellip;</span>
+                        <button v-else class="pageNumBtn" :class="{ active: page === pagination.current_page }"
+                          @click="goToPage(page)">
+                          {{ page }}
+                        </button>
+                      </template>
+
+                      <button class="pageBtn" :disabled="pagination.current_page === pagination.last_page"
+                        @click="goToPage(pagination.current_page + 1)">
+                        <i class="fi fi-sr-angle-right" />
+                      </button>
+
+                      <span class="pageInfo">{{ pagination.total }} passageiros</span>
+                    </div>
                   </template>
-
-                  <button class="pageBtn" :disabled="pagination.current_page === pagination.last_page"
-                    @click="goToPage(pagination.current_page + 1)">
-                    <i class="fi fi-sr-angle-right" />
-                  </button>
-
-                  <span class="pageInfo">{{ pagination.total }} passageiros</span>
                 </div>
-              </template>
-            </div>
+              </div>
 
+              <!-- VISTA: EDITAR -->
+              <div v-else key="edit" class="editView">
+                <div class="manifestTop">
+                  <div class="manifestTitleRow">
+                    <span class="manifestTitle">Editar viagem</span>
+                  </div>
+                </div>
+
+                <div class="editBody">
+                  <div class="fieldRow">
+                    <div class="fieldGroup">
+                      <span class="readonlyLabel">Rota</span>
+                      <span class="readonlyValue">{{ localTrip.route?.name ?? '--' }}</span>
+                    </div>
+                    <div class="fieldGroup">
+                      <span class="readonlyLabel">Data</span>
+                      <span class="readonlyValue">{{ formatDate(localTrip.departure_date) }}</span>
+                    </div>
+                  </div>
+
+                  <div class="fieldGroup">
+                    <BaseInput label="Hora de partida (24h)" type="text" placeholder="17:00"
+                      :modelValue="editForm.departure_time" @update:modelValue="editForm.departure_time = $event" />
+                    <span v-if="editErrors.departure_time" class="fieldError">{{ editErrors.departure_time }}</span>
+                  </div>
+
+                  <div class="fieldGroup">
+                    <InputDropDown label="Veículo" :modelValue="editForm.vehicle_id" :options="vehicleOptions"
+                      @update:modelValue="editForm.vehicle_id = $event" />
+                  </div>
+
+                  <div class="fieldGroup">
+                    <InputDropDown label="Motorista" :modelValue="editForm.driver_id" :options="driverOptions"
+                      @update:modelValue="editForm.driver_id = $event" />
+                  </div>
+
+                  <div class="fieldGroup">
+                    <InputDropDown label="Estado" :modelValue="editForm.status" :options="statusOptions"
+                      @update:modelValue="editForm.status = $event" />
+                  </div>
+
+                  <div class="fieldGroup">
+                    <BaseInput label="Notas" :modelValue="editForm.notes" @update:modelValue="editForm.notes = $event" />
+                  </div>
+
+                  <div class="editActions">
+                    <button class="btnSecondary" @click="activeView = 'manifest'">Voltar</button>
+                    <button class="btnPrimary" :disabled="isSavingEdit" @click="handleSaveEdit">
+                      {{ isSavingEdit ? 'A guardar...' : 'Guardar alterações' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </Transition>
           </div>
    </div>
 
@@ -271,6 +487,27 @@ onMounted(() => fetchBookings())
       </Transition>
     </div>
   </Transition>
+
+  <ConfirmDeleteModal
+    v-if="showCancelConfirm"
+    title="Cancelar viagem?"
+    subtitle="Esta acção marca a viagem como cancelada. Os passageiros com reservas activas devem ser informados separadamente."
+    icon="fi fi-rs-ban"
+    :show-deactivate="false"
+    :show-delete="true"
+    delete-label="Cancelar viagem"
+    delete-loading-label="A cancelar..."
+    :loading-delete="isCancelling"
+    @confirm-delete="confirmCancel"
+    @cancel="showCancelConfirm = false"
+  />
+
+  <TicketModal
+    v-if="selectedTicket"
+    :booking="selectedTicket"
+    :trip-info="ticketTripInfo"
+    @close="selectedTicket = null"
+  />
 </template>
 
 
@@ -364,6 +601,32 @@ onMounted(() => fetchBookings())
   white-space: nowrap;
 }
 
+.bookingsLink {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 5px;
+  white-space: nowrap;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.bookingsLink:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.bookingsLink i {
+  font-size: 12px;
+  position: relative;
+  top: 1px;
+}
+
 .closeBtn {
   width: 32px;
   height: 32px;
@@ -395,6 +658,7 @@ onMounted(() => fetchBookings())
   width: 45%;
   flex-shrink: 0;
   padding: 24px;
+  display: flex;
   flex-direction: column;
   gap: 18px;
   overflow-y: auto;
@@ -510,10 +774,9 @@ onMounted(() => fetchBookings())
   opacity: 0.88;
 }
 
-.actionBtn i {
-  font-size: 13px;
-  position: relative;
-  top: 1px;
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .actionBtn.green {
@@ -522,6 +785,10 @@ onMounted(() => fetchBookings())
 
 .actionBtn.magenta {
   background: #922877;
+}
+
+.actionBtn.magenta.active {
+  background: #6e1e5c;
 }
 
 .actionBtn.red {
@@ -535,17 +802,19 @@ onMounted(() => fetchBookings())
   align-self: stretch;
 }
 
-.verticalDivider {
-  width: 1px;
-  background: #e8e8e8;
-  flex-shrink: 0;
-  align-self: stretch;
-}
-
 /* COLUNA DIREITA */
 .rightPanel {
   flex: 1;
   width: 55%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.manifestView,
+.editView {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -709,6 +978,12 @@ onMounted(() => fetchBookings())
   border-radius: 8px;
   border: 1px solid #f0f0f0;
   transition: all 0.15s;
+  cursor: pointer;
+}
+
+.manifestRow:hover {
+  background: #f0e6ef;
+  border-color: #e0cee0;
 }
 
 .manifestRow.cancelledRow {
@@ -827,6 +1102,99 @@ onMounted(() => fetchBookings())
   margin-left: 8px;
 }
 
+/* EDITAR */
+.editBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: #e0e0e0 transparent;
+}
+
+.fieldRow {
+  display: flex;
+  gap: 14px;
+}
+
+.fieldRow .fieldGroup {
+  flex: 1;
+  min-width: 0;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fieldError {
+  font-size: 11px;
+  color: #e74c3c;
+  padding-left: 2px;
+}
+
+.readonlyLabel {
+  font-size: 13px;
+  color: #333;
+}
+
+.readonlyValue {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  background: #f0f0f0;
+  border-radius: 5px;
+  font-size: 15px;
+  color: #666;
+}
+
+.editActions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btnPrimary,
+.btnSecondary {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btnPrimary {
+  background: #922877;
+  color: white;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.btnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  background: #f0f0f0;
+  color: #555;
+}
+
+.btnSecondary:hover {
+  background: #e0e0e0;
+}
+
 /* TRANSITIONS */
 .overlay-enter-active,
 .overlay-leave-active {
@@ -847,5 +1215,20 @@ onMounted(() => fetchBookings())
 .modal-leave-to {
   opacity: 0;
   transform: translateY(14px) scale(0.98);
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.25s ease;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateX(16px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-16px);
 }
 </style>
