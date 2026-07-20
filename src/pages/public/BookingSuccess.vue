@@ -13,7 +13,6 @@ const route = useRoute()
 const bookingStore = usePublicBookingStore()
 const { showToast } = useToast()
 
-const bookings = JSON.parse(route.query.bookings ?? '[]')
 const sessionToken = route.query.session_token
 const paymentMethodUsed = route.query.method ?? null
 
@@ -22,39 +21,49 @@ const renderingForCapture = ref(false)
 const downloading = ref(false)
 const captureRefs = ref([])
 
-const statusByTicket = ref({})
+const loading = ref(true)
+const loadError = ref(false)
+const displayBookings = ref([])
+const tripInfo = ref({ route: 'Maputo → Johannesburg', date: '', time: '17:00' })
 
-async function verifyStatus() {
-  if (!sessionToken) return
+// O bilhete final nunca e construido com dados da URL (editaveis por qualquer pessoa) -
+// vem sempre desta consulta ao backend, pelo session_token (UUID imprevisivel).
+async function loadBookings() {
+  if (!sessionToken) {
+    loadError.value = true
+    loading.value = false
+    return
+  }
 
   const maxAttempts = paymentMethodUsed === 'card' ? 5 : 1
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const results = await bookingStore.fetchGroupStatus(sessionToken)
-      const map = {}
-      results.forEach((r) => { map[r.ticket_number] = r })
-      statusByTicket.value = map
+      const res = await bookingStore.fetchGroupStatus(sessionToken)
+      displayBookings.value = res.data
+      if (res.trip) {
+        tripInfo.value = {
+          route: res.trip.route_name ?? tripInfo.value.route,
+          date: res.trip.departure_date ?? tripInfo.value.date,
+          time: res.trip.departure_time?.slice(0, 5) ?? tripInfo.value.time,
+        }
+      }
+      loadError.value = false
 
-      const settled = results.every((r) => r.payment_status !== 'pending' || paymentMethodUsed !== 'card')
+      const settled = res.data.every((b) => b.payment_status !== 'pending' || paymentMethodUsed !== 'card')
       if (settled) break
     } catch {
+      loadError.value = true
       break
     }
 
     if (attempt < maxAttempts - 1) await new Promise((r) => setTimeout(r, 1500))
   }
+
+  loading.value = false
 }
 
-onMounted(verifyStatus)
-
-const displayBookings = computed(() =>
-  bookings.map((b) => ({
-    ...b,
-    status: statusByTicket.value[b.ticket_number]?.status ?? b.status,
-    payment_status: statusByTicket.value[b.ticket_number]?.payment_status ?? b.payment_status,
-  }))
-)
+onMounted(loadBookings)
 
 const allPaid = computed(() =>
   displayBookings.value.length > 0 && displayBookings.value.every((b) => b.payment_status === 'paid')
@@ -63,12 +72,6 @@ const allPaid = computed(() =>
 const somePendingPayment = computed(() =>
   displayBookings.value.some((b) => b.payment_status === 'pending')
 )
-
-const tripInfo = computed(() => ({
-  route: route.query.route_name ?? 'Maputo → Johannesburg',
-  date: route.query.date ?? '',
-  time: route.query.time ?? '17:00',
-}))
 
 const tripSummary = computed(() => {
   const parts = [tripInfo.value.route]
@@ -133,6 +136,25 @@ function newBooking() {
 
 <template>
   <div class="page">
+
+    <!-- A CONFIRMAR -->
+    <div v-if="loading" class="stateWrap">
+      <div class="stateSpinner" />
+      <p class="stateText">A confirmar a sua reserva...</p>
+    </div>
+
+    <!-- ERRO -->
+    <div v-else-if="loadError" class="stateWrap">
+      <i class="fi fi-rs-triangle-warning stateIcon" />
+      <p class="stateTitle">Não foi possível confirmar a sua reserva</p>
+      <p class="stateText">
+        Contacte o nosso balcão pelo
+        <a href="tel:+258867732237" class="infoPhone">+258 867732237</a>
+        com o número do seu bilhete.
+      </p>
+    </div>
+
+    <template v-else>
 
     <!-- SUCCESS BANNER -->
     <div class="banner">
@@ -248,6 +270,8 @@ function newBooking() {
       />
     </div>
 
+    </template>
+
   </div>
 </template>
 
@@ -257,6 +281,50 @@ function newBooking() {
   background: #F6F6F6;
   display: flex;
   flex-direction: column;
+}
+
+/* ESTADOS DE CARREGAMENTO/ERRO */
+.stateWrap {
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+}
+
+.stateSpinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #eee;
+  border-top-color: #922877;
+  border-radius: 50%;
+  animation: stateSpin 0.7s linear infinite;
+}
+
+@keyframes stateSpin {
+  to { transform: rotate(360deg); }
+}
+
+.stateIcon {
+  font-size: 32px;
+  color: #FFB300;
+}
+
+.stateTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #221F20;
+}
+
+.stateText {
+  font-size: 14px;
+  color: #666;
+  max-width: 360px;
+  line-height: 1.55;
 }
 
 /* BANNER */
@@ -580,11 +648,11 @@ function newBooking() {
 /* DESKTOP */
 @media (min-width: 768px) {
   .banner { padding: 64px 40px 100px; }
-  .content { padding: 0 40px 64px; }
+  .content { padding: 0 40px 64px; max-width: 540px; }
 }
 
 @media (min-width: 1024px) {
   .banner { padding: 80px 80px 120px; }
-  .content { padding: 0 80px 80px; }
+  .content { padding: 0 80px 80px; max-width: 560px; }
 }
 </style>

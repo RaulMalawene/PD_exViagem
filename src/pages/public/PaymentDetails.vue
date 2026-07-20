@@ -189,10 +189,6 @@ async function confirm() {
         router.push({
             path: '/booking/success',
             query: {
-                bookings: JSON.stringify(bookings),
-                route_name: tripData.value?.route?.name,
-                date: tripData.value?.departure_date,
-                time: tripData.value?.departure_time?.slice(0, 5),
                 session_token: sessionToken,
                 method: selectedMethod.value,
             },
