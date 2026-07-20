@@ -98,8 +98,7 @@ export const usePublicBookingStore = defineStore('publicBooking', {
     },
 
     async fetchGroupStatus(sessionToken) {
-      const res = await publicBookingService.groupStatus(sessionToken)
-      return res.data
+      return publicBookingService.groupStatus(sessionToken)
     },
 
     async createPaymentIntent(sessionToken) {
