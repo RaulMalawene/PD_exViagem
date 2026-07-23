@@ -20,6 +20,11 @@ function goBack() {
     router.back()
 }
 
+function goToStep(step) {
+    const target = bookingStore.stepRoute(step)
+    if (target) router.push(target)
+}
+
 function onSelectDate(date) {
     selectedDate.value = date
     router.replace({ query: { ...route.query, date } })
@@ -38,6 +43,7 @@ function formatTripDate(dateStr) {
 }
 
 function selectTrip(trip) {
+    bookingStore.saveFlow({ routeId: routeId.value })
     router.push({
         path: '/booking/seats',
         query: { trip_id: trip.id },
@@ -66,7 +72,7 @@ onMounted(async () => {
     <div class="page">
 
         <!-- STEPPER -->
-        <BookingStepper :current="1" />
+        <BookingStepper :current="1" @step-click="goToStep" />
 
         <!-- CONTENT -->
         <div class="content">

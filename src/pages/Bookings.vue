@@ -26,6 +26,7 @@ const { routes } = storeToRefs(routeStore)
 
 const selectedBooking = ref(null)
 const showNewBookingModal = ref(false)
+const mobileFiltersOpen = ref(false)
 
 const filters = ref({
   passenger: '',
@@ -63,6 +64,10 @@ const paymentStatusLabels = { pending: 'Pendente', paid: 'Pago', refunded: 'Reem
 
 const hasFilters = computed(() =>
   !!(filters.value.passenger || filters.value.date || filters.value.status || filters.value.payment_status || filters.value.route_id || filters.value.trip_id)
+)
+
+const activeFilterCount = computed(() =>
+  [filters.value.date, filters.value.route_id, filters.value.status, filters.value.payment_status].filter(Boolean).length
 )
 
 const headers = ['Bilhete', 'Passageiro', 'Rota', 'Data', 'Assento', 'Estado', 'Pagamento']
@@ -218,7 +223,14 @@ onMounted(() => {
         </button>
       </div>
 
-      <div class="filters">
+      <button class="filtersToggle" @click="mobileFiltersOpen = !mobileFiltersOpen">
+        <i class="fi fi-rs-filter" />
+        <span>Filtros</span>
+        <span v-if="activeFilterCount" class="filterBadge">{{ activeFilterCount }}</span>
+        <i class="fi fi-rs-angle-small-down toggleChevron" :class="{ rotated: mobileFiltersOpen }" />
+      </button>
+
+      <div class="filters" :class="{ mobileOpen: mobileFiltersOpen }">
         <div class="dates">
           <DateFilter
             txt="Data da viagem"
@@ -410,6 +422,10 @@ header {
   background: rgba(146, 40, 119, 0.28);
 }
 
+.filtersToggle {
+  display: none;
+}
+
 .filters {
   margin-top: 32px;
   min-height: 60px;
@@ -575,5 +591,119 @@ header {
 
 @media (min-width: 1280px) and (max-width: 1439px) {
   .table { padding: 36px; }
+}
+
+@media (max-width: 767px) {
+  .bookingsWrapper {
+    height: auto;
+    overflow: visible;
+  }
+
+  .filterData {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+    margin-top: 20px;
+  }
+
+  .searchData {
+    flex-wrap: wrap;
+  }
+
+  .Data {
+    width: 100%;
+  }
+
+  .Data > div {
+    width: 100%;
+  }
+
+  .filtersToggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 44px;
+    margin-top: 20px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 8px;
+    background: #fff;
+    color: #922877;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Ubuntu', sans-serif;
+    cursor: pointer;
+  }
+
+  .filtersToggle i:first-child {
+    font-size: 14px;
+  }
+
+  .filterBadge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #922877;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toggleChevron {
+    margin-left: auto;
+    font-size: 12px;
+    color: #999;
+    transition: transform 0.2s;
+  }
+
+  .toggleChevron.rotated {
+    transform: rotate(180deg);
+  }
+
+  .filters {
+    display: none;
+    margin-top: 12px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filters.mobileOpen {
+    display: flex;
+  }
+
+  .dates,
+  .dropdowns {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .dates > *,
+  .dropdowns > * {
+    width: 100%;
+    max-width: none;
+  }
+
+  .Statistcss { margin-top: 20px; }
+
+  .table {
+    margin-top: 20px;
+    padding: 16px;
+    overflow: visible;
+  }
+
+  .table :deep(.tablebaseWrapper) {
+    height: auto;
+    max-height: none;
+  }
+
+  .loaderWrapper,
+  .emptyState {
+    height: 240px;
+  }
 }
 </style>

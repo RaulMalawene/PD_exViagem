@@ -7,6 +7,7 @@ import { useToast } from '../../composables/useToast'
 import { formatDate } from '../../utils/formatDate'
 import TicketModal from '../../components/TicketModal.vue'
 import TicketCard from '../../components/TicketCard.vue'
+import SendTicketWhatsAppModal from '../../components/SendTicketWhatsAppModal.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -20,6 +21,8 @@ const selectedTicket = ref(null)
 const renderingForCapture = ref(false)
 const downloading = ref(false)
 const captureRefs = ref([])
+const showWhatsAppModal = ref(false)
+const sendingWhatsApp = ref(false)
 
 const loading = ref(true)
 const loadError = ref(false)
@@ -86,17 +89,57 @@ function viewTicket(booking) {
   selectedTicket.value = booking
 }
 
-function sendWhatsApp(allBookings) {
-  const numero = '258862051706'
-  const ticketsText = allBookings
-    .map((b, i) =>
-      `Bilhete ${i + 1}: ${b.ticket_number}\n` +
-      `Assento: ${b.seat_number}\n` +
-      `Passageiro: ${b.passenger_name}`
-    )
-    .join('\n\n')
-  const msg = `Olá, aqui estão os detalhes da minha reserva:\n\n${ticketsText}`
-  window.open('https://wa.me/' + numero + '?text=' + encodeURIComponent(msg), '_blank')
+async function captureTicketImage(el) {
+  const dataUrl = await toPng(el, { pixelRatio: 2, backgroundColor: '#ffffff' })
+  const blob = await (await fetch(dataUrl)).blob()
+  return blob
+}
+
+async function handleSendWhatsApp(phone) {
+  if (sendingWhatsApp.value || downloading.value) return
+
+  const confirmedBookings = displayBookings.value.filter((b) => b.status === 'confirmed')
+  if (confirmedBookings.length === 0) {
+    showToast('error', 'Nenhum bilhete confirmado para enviar.')
+    return
+  }
+
+  sendingWhatsApp.value = true
+  renderingForCapture.value = true
+  await nextTick()
+
+  let sent = 0
+  let failed = 0
+
+  for (let i = 0; i < displayBookings.value.length; i++) {
+    const booking = displayBookings.value[i]
+    if (booking.status !== 'confirmed') continue
+
+    const el = captureRefs.value[i]?.root
+    if (!el) {
+      failed++
+      continue
+    }
+
+    try {
+      const imageBlob = await captureTicketImage(el)
+      await bookingStore.sendBookingWhatsapp(sessionToken, booking.id, phone, imageBlob)
+      sent++
+    } catch {
+      failed++
+    }
+  }
+
+  renderingForCapture.value = false
+  sendingWhatsApp.value = false
+  showWhatsAppModal.value = false
+
+  if (sent > 0) {
+    showToast('success', sent > 1 ? `${sent} bilhetes enviados para o seu WhatsApp.` : 'Bilhete enviado para o seu WhatsApp.')
+  }
+  if (failed > 0) {
+    showToast('error', `${failed} bilhete(s) não puderam ser enviados. Tente novamente.`)
+  }
 }
 
 async function downloadImage(el, filename) {
@@ -108,7 +151,7 @@ async function downloadImage(el, filename) {
 }
 
 async function downloadTicket(allBookings) {
-  if (downloading.value) return
+  if (downloading.value || sendingWhatsApp.value) return
 
   downloading.value = true
   renderingForCapture.value = true
@@ -215,7 +258,7 @@ function newBooking() {
 
         <div class="actionDivider" />
 
-        <button class="actionRow" @click="sendWhatsApp(displayBookings)">
+        <button class="actionRow" @click="showWhatsAppModal = true">
           <div class="actionIconWrap green">
           <i class="fi fi-brands-whatsapp actionIcon" />
           </div>
@@ -257,6 +300,15 @@ function newBooking() {
       :booking="selectedTicket"
       :trip-info="tripInfo"
       @close="selectedTicket = null"
+    />
+
+    <!-- ENVIAR POR WHATSAPP -->
+    <SendTicketWhatsAppModal
+      v-if="showWhatsAppModal"
+      :sending="sendingWhatsApp"
+      :plural="isPlural"
+      @send="handleSendWhatsApp"
+      @close="showWhatsAppModal = false"
     />
 
     <!-- CARTOES ESCONDIDOS PARA CAPTURA DE IMAGEM -->

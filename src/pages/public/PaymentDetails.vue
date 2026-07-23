@@ -97,6 +97,11 @@ async function fetchTripData() {
 
 onMounted(fetchTripData)
 
+function goToStep(step) {
+    const target = bookingStore.stepRoute(step)
+    if (target) router.push(target)
+}
+
 function canSubmit() {
     if (selectedMethod.value === 'card') return cardReady.value && !cardLoading.value
     if (selectedMethod.value === 'mpesa') return mobilePhone.value
@@ -204,7 +209,7 @@ async function confirm() {
     <div class="page">
 
         <!-- STEPPER -->
-        <BookingStepper :current="4" />
+        <BookingStepper :current="4" @step-click="goToStep" />
 
         <!-- CONTENT -->
         <div class="content">

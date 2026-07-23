@@ -1,47 +1,32 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useTripStore } from '../stores/tripStore'
-import { useRouteStore } from '../stores/routeStore'
-import { useBookingStore } from '../stores/bookingStore'
-import { formatDate } from '../utils/formatDate'
+import { useReportStore } from '../../stores/reportStore'
+import { useRouteStore } from '../../stores/routeStore'
+import { useToast } from '../../composables/useToast'
+import { parseApiError } from '../../utils/parseApiError'
+import { formatDate } from '../../utils/formatDate'
 
-import Text from '../components/Text.vue'
-import Profile from '../components/Profile.vue'
-import StatiscSimple from '../components/StatiscSimple.vue'
-import TableBase from '../components/TableBase.vue'
-import IconText from '../components/IconText.vue'
-import DateFilter from '../components/filters/DateFilter.vue'
-import FilterDropDown from '../components/filters/FilterDropDown.vue'
-import CleanFilter from '../components/CleanFilter.vue'
-import TripFormModal from '../modal/TripFormModal.vue'
-import GenerateTripsModal from '../modal/GenerateTripsModal.vue'
-import TripDetailModal from '../modal/TripDetailModal.vue'
+import Text from '../../components/Text.vue'
+import Profile from '../../components/Profile.vue'
+import StatiscSimple from '../../components/StatiscSimple.vue'
+import TableBase from '../../components/TableBase.vue'
+import IconText from '../../components/IconText.vue'
+import DateFilter from '../../components/filters/DateFilter.vue'
+import FilterDropDown from '../../components/filters/FilterDropDown.vue'
+import CleanFilter from '../../components/CleanFilter.vue'
 
-const tripStore = useTripStore()
+const reportStore = useReportStore()
 const routeStore = useRouteStore()
-const bookingStore = useBookingStore()
-const { trips, pagination, loading } = storeToRefs(tripStore)
+const { occupancy, loading } = storeToRefs(reportStore)
 const { routes } = storeToRefs(routeStore)
+const { showToast } = useToast()
 
-const editingTrip = ref(null)
-const selectedTrip = ref(null)
-const showFormModal = ref(false)
-const showGenerateModal = ref(false)
-
-const filters = ref({ status: '', date: '', route_id: '' })
-const stats = ref({ pending: null, confirmed: null, cancelled: null })
+const downloadingPdf = ref(false)
+const filters = ref({ date_from: '', date_to: '', route_id: '' })
 
 const routeOptions = computed(() => routes.value.map((r) => ({ id: r.id, name: r.name })))
-
-const tripStatusOptions = [
-  { label: 'Agendada', value: 'scheduled' },
-  { label: 'Em embarque', value: 'boarding' },
-  { label: 'Em curso', value: 'in_progress' },
-  { label: 'Concluída', value: 'completed' },
-  { label: 'Cancelada', value: 'cancelled' },
-  { label: 'Com atraso', value: 'delayed' },
-]
+const hasFilters = computed(() => !!(filters.value.date_from || filters.value.date_to || filters.value.route_id))
 
 const statusLabels = {
   scheduled: 'Agendada',
@@ -52,18 +37,17 @@ const statusLabels = {
   delayed: 'Com atraso',
 }
 
-const hasFilters = computed(() => !!(filters.value.status || filters.value.date || filters.value.route_id))
-
-const headers = ['Rota', 'Data', 'Partida', 'Veículo', 'Motorista', 'Estado']
+const headers = ['Data', 'Rota', 'Viatura', 'Lugares Vendidos', 'Capacidade', 'Ocupação', 'Estado']
 
 const rows = computed(() =>
-  trips.value.map((t) => ({
-    id: t.id,
-    route: t.route?.name ?? '--',
-    date: formatDate(t.departure_date),
-    time: t.departure_time,
-    vehicle: t.vehicle ? `${t.vehicle.brand} ${t.vehicle.model}` : '--',
-    driver: t.driver?.name ?? '--',
+  (occupancy.value.rows ?? []).map((t) => ({
+    id: t.trip_id,
+    date: formatDate(t.date),
+    route: t.route,
+    vehicle: t.vehicle,
+    seats_sold: t.seats_sold,
+    capacity: t.capacity,
+    occupancy: `${t.occupancy_rate}%`,
     status: statusLabels[t.status] ?? t.status,
   }))
 )
@@ -72,33 +56,28 @@ function buildParams(page = 1) {
   return {
     page,
     per_page: 15,
-    ...(filters.value.status ? { status: filters.value.status } : {}),
-    ...(filters.value.date ? { date: filters.value.date } : {}),
+    ...(filters.value.date_from ? { date_from: filters.value.date_from } : {}),
+    ...(filters.value.date_to ? { date_to: filters.value.date_to } : {}),
     ...(filters.value.route_id ? { route_id: filters.value.route_id } : {}),
   }
 }
 
 async function fetchData(page = 1) {
-  await tripStore.fetchTrips(buildParams(page))
-}
-
-async function fetchStats() {
-  const [pending, confirmed, cancelled] = await Promise.all([
-    bookingStore.countBookings({ status: 'pending' }),
-    bookingStore.countBookings({ status: 'confirmed' }),
-    bookingStore.countBookings({ status: 'cancelled' }),
-  ])
-  stats.value = { pending, confirmed, cancelled }
+  try {
+    await reportStore.fetchOccupancy(buildParams(page))
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  }
 }
 
 function goToPage(page) {
-  if (page < 1 || page > pagination.value.last_page) return
+  if (page < 1 || page > occupancy.value.pagination.last_page) return
   fetchData(page)
 }
 
 const pageNumbers = computed(() => {
-  const current = pagination.value.current_page
-  const last = pagination.value.last_page
+  const current = occupancy.value.pagination.current_page
+  const last = occupancy.value.pagination.last_page
   if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1)
 
   const range = []
@@ -119,48 +98,39 @@ watch(filters, () => {
 }, { deep: true })
 
 function clearFilters() {
-  filters.value = { status: '', date: '', route_id: '' }
+  filters.value = { date_from: '', date_to: '', route_id: '' }
 }
 
-function openCreate() {
-  editingTrip.value = null
-  showFormModal.value = true
-}
-
-function openTrip(row) {
-  selectedTrip.value = trips.value.find((t) => t.id === row.id) ?? null
-}
-
-function closeTripDetail(changed) {
-  selectedTrip.value = null
-  if (changed) {
-    fetchData(pagination.value.current_page)
-    fetchStats()
+async function downloadPdf() {
+  downloadingPdf.value = true
+  try {
+    const params = { ...buildParams(1) }
+    delete params.page
+    delete params.per_page
+    const blob = await reportStore.downloadOccupancyPdf(params)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'relatorio-ocupacao.pdf'
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    downloadingPdf.value = false
   }
-}
-
-function closeForm(saved) {
-  showFormModal.value = false
-  editingTrip.value = null
-  if (saved) fetchData(pagination.value.current_page)
-}
-
-function closeGenerate(saved) {
-  showGenerateModal.value = false
-  if (saved) fetchData(pagination.value.current_page)
 }
 
 onMounted(() => {
   fetchData()
-  fetchStats()
   routeStore.fetchRoutes({ per_page: 100 })
 })
 </script>
 
 <template>
-  <div class="homeWrapper">
+  <div class="reportWrapper">
     <header>
-      <Text txt="Dashboard" color="221F20" weight="600" size="37px" />
+      <Text txt="Ocupação por Viagem" color="221F20" weight="600" size="37px" />
       <Profile />
     </header>
 
@@ -168,59 +138,31 @@ onMounted(() => {
       <div class="searchData">
         <div class="filters">
           <div class="dates">
-            <DateFilter
-              txt="Data"
-              icon="fi fi-sr-calendar"
-              color="#922877"
-              v-model="filters.date"
-            />
+            <DateFilter txt="De" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_from" />
+            <DateFilter txt="Até" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_to" />
           </div>
 
           <div class="dropdowns">
-            <FilterDropDown
-              txt="Rota"
-              icon="fi fi-rs-route"
-              color="#922877"
-              :options="routeOptions"
-              v-model="filters.route_id"
-            />
-            <FilterDropDown
-              txt="Estado da viagem"
-              icon="fi fi-sr-bus"
-              color="#922877"
-              :options="tripStatusOptions"
-              v-model="filters.status"
-            />
+            <FilterDropDown txt="Rota" icon="fi fi-rs-route" color="#922877" :options="routeOptions"
+              v-model="filters.route_id" />
             <CleanFilter v-if="hasFilters" @click="clearFilters" />
           </div>
         </div>
 
         <div class="Data">
-          <div @click="showGenerateModal = true">
-            <IconText
-              icon="fi fi-rs-calendar-clock"
-              txt="Gerar viagens"
-              color="#8B9B1A"
-              textcolor="#fff"
-              background="#922877"
-            />
-          </div>
-          <div @click="openCreate">
-            <IconText
-              icon="fi fi-rs-bus"
-              txt="Nova Viagem"
-              color="#8B9B1A"
-              background="#922877"
-            />
+          <div @click="downloadPdf">
+            <IconText icon="fi fi-rs-file-pdf" :txt="downloadingPdf ? 'A gerar...' : 'Exportar PDF'"
+              color="#8B9B1A" background="#922877" />
           </div>
         </div>
       </div>
 
       <div class="Statistcss">
-        <StatiscSimple title="Total de viagens" :data="pagination.total" />
-        <StatiscSimple title="Reservas pendentes" :data="stats.pending" />
-        <StatiscSimple title="Reservas confirmadas" :data="stats.confirmed" />
-        <StatiscSimple title="Reservas canceladas" :data="stats.cancelled" />
+        <StatiscSimple title="Total de viagens" :data="occupancy.summary?.total_trips" />
+        <StatiscSimple title="Lugares vendidos" :data="occupancy.summary?.total_seats_sold" />
+        <StatiscSimple title="Capacidade total" :data="occupancy.summary?.total_capacity" />
+        <StatiscSimple title="Taxa de ocupação"
+          :data="occupancy.summary ? `${occupancy.summary.occupancy_rate}%` : null" />
       </div>
 
       <div class="table">
@@ -228,68 +170,44 @@ onMounted(() => {
           <div class="loader"></div>
         </div>
 
-        <div v-else-if="trips.length === 0" class="emptyState">
+        <div v-else-if="rows.length === 0" class="emptyState">
           <i class="fi fi-sr-folder-open emptyIcon"></i>
           <Text txt="Nenhuma viagem encontrada" color="922877" weight="600" size="22px" />
           <p class="emptyText">Não existem viagens para os filtros seleccionados.</p>
         </div>
 
         <template v-else>
-          <TableBase
-            :headers="headers"
-            :rows="rows"
-            displayIcon="none"
-            displayEye="flex"
-            @row-click="openTrip"
-          />
+          <TableBase :headers="headers" :rows="rows" :hide-actions="true" />
 
-          <div class="pagination" v-if="pagination.last_page > 1">
-            <button class="pageBtn" :disabled="pagination.current_page === 1"
-              @click="goToPage(pagination.current_page - 1)">
+          <div class="pagination" v-if="occupancy.pagination.last_page > 1">
+            <button class="pageBtn" :disabled="occupancy.pagination.current_page === 1"
+              @click="goToPage(occupancy.pagination.current_page - 1)">
               <i class="fi fi-sr-angle-left" />
             </button>
 
             <template v-for="(page, i) in pageNumbers" :key="i">
               <span v-if="page === '...'" class="pageEllipsis">&hellip;</span>
-              <button v-else class="pageNumBtn"
-                :class="{ active: page === pagination.current_page }"
+              <button v-else class="pageNumBtn" :class="{ active: page === occupancy.pagination.current_page }"
                 @click="goToPage(page)">
                 {{ page }}
               </button>
             </template>
 
-            <button class="pageBtn" :disabled="pagination.current_page === pagination.last_page"
-              @click="goToPage(pagination.current_page + 1)">
+            <button class="pageBtn" :disabled="occupancy.pagination.current_page === occupancy.pagination.last_page"
+              @click="goToPage(occupancy.pagination.current_page + 1)">
               <i class="fi fi-sr-angle-right" />
             </button>
 
-            <span class="pageInfo">{{ pagination.total }} viagens</span>
+            <span class="pageInfo">{{ occupancy.pagination.total }} viagens</span>
           </div>
         </template>
       </div>
     </div>
   </div>
-
-  <TripFormModal
-    v-if="showFormModal"
-    :trip="editingTrip"
-    @close="closeForm"
-  />
-
-  <GenerateTripsModal
-    v-if="showGenerateModal"
-    @close="closeGenerate"
-  />
-
-  <TripDetailModal
-    v-if="selectedTrip"
-    :trip="selectedTrip"
-    @close="closeTripDetail"
-  />
 </template>
 
 <style scoped>
-.homeWrapper {
+.reportWrapper {
   height: 100%;
   width: 100%;
   min-width: 0;

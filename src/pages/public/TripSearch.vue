@@ -48,6 +48,10 @@ function closeAll() {
 
 onMounted(async () => {
     document.addEventListener('click', closeAll)
+    // Chegar aqui e sempre o inicio de uma reserva nova (nunca um "voltar atras" dentro
+    // de um fluxo em curso - isso vai para /booking/results) - limpa o estado da reserva
+    // anterior para o token de sessao nao ser reaproveitado entre reservas diferentes.
+    bookingStore.clearFlow()
     await bookingStore.fetchRoutes()
     if (!selectedRoute.value && bookingStore.routes.length) {
         selectedRoute.value = String(bookingStore.routes[0].id)
