@@ -992,7 +992,9 @@ onUnmounted(() => {
 
   .leftPanel {
     width: 100%;
+    flex: none;
     padding: 16px;
+    overflow: visible;
   }
 
   .verticalDivider {
@@ -1001,6 +1003,8 @@ onUnmounted(() => {
   }
 
   .rightPanel {
+    flex: none;
+    overflow: visible;
     padding: 16px;
   }
 
