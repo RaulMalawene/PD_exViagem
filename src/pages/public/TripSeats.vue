@@ -164,6 +164,11 @@ function startTimer() {
   }, 1000)
 }
 
+function goToStep(step) {
+  const target = bookingStore.stepRoute(step)
+  if (target) router.push(target)
+}
+
 function proceed() {
   if (!hasSelection.value || hasPending.value) return
 
@@ -213,7 +218,7 @@ onUnmounted(() => {
   <div class="page">
 
     <!-- STEPPER -->
-    <BookingStepper :current="2" />
+    <BookingStepper :current="2" @step-click="goToStep" />
 
     <!-- HOLD TIMER -->
     <Transition name="slide">

@@ -115,6 +115,11 @@ function selectExpiry(idx, date) {
     passengers.value[idx].expiry_open = false
 }
 
+function goToStep(step) {
+    const target = bookingStore.stepRoute(step)
+    if (target) router.push(target)
+}
+
 function toggleAccordion(idx) {
     if (idx > 0 && !isPassengerComplete(idx - 1)) return
     openIndex.value = openIndex.value === idx ? -1 : idx
@@ -278,7 +283,7 @@ onUnmounted(() => {
     <div class="page">
 
         <!-- STEPPER -->
-        <BookingStepper :current="3" />
+        <BookingStepper :current="3" @step-click="goToStep" />
 
         <!-- CONTENT -->
         <div class="content">
@@ -392,7 +397,7 @@ onUnmounted(() => {
                                             </Transition>
                                         </div>
                                         <input v-model="passenger.phone" type="tel" class="input telInput"
-                                            placeholder="84 123 4567" />
+                                            placeholder="84 000 0000" />
                                     </div>
                                 </div>
 
@@ -419,7 +424,7 @@ onUnmounted(() => {
                                             </Transition>
                                         </div>
                                         <input v-model="passenger.emergency_contact_phone" type="tel"
-                                            class="input telInput" placeholder="84 123 4568" />
+                                            class="input telInput" placeholder="84 000 0000" />
                                     </div>
                                 </div>
 

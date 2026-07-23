@@ -5,6 +5,7 @@ import { useInvoiceStore } from '../stores/invoiceStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
+import { formatPhone } from '../utils/formatPhone'
 import Badge from '../components/Badge.vue'
 import DataCard from '../components/DataCard.vue'
 
@@ -289,11 +290,11 @@ onMounted(() => {
                       </div>
                       <div class="infoItem">
                         <span class="infoLabel">Telefone</span>
-                        <span class="infoValue">{{ booking.passenger?.phone ?? '--' }}</span>
+                        <span class="infoValue">{{ formatPhone(booking.passenger?.phone) ?? '--' }}</span>
                       </div>
                       <div class="infoItem">
                         <span class="infoLabel">Contacto de emergência</span>
-                        <span class="infoValue">{{ booking.passenger?.emergency_contact_phone ?? '--' }}</span>
+                        <span class="infoValue">{{ formatPhone(booking.passenger?.emergency_contact_phone) ?? '--' }}</span>
                       </div>
                     </div>
                   </div>

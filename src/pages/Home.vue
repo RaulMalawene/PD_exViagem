@@ -200,9 +200,9 @@ onMounted(() => {
             <IconText
               icon="fi fi-rs-calendar-clock"
               txt="Gerar viagens"
-              color="#922877"
-              textcolor="#922877"
-              background="#EFE6EF"
+              color="#8B9B1A"
+              textcolor="#fff"
+              background="#922877"
             />
           </div>
           <div @click="openCreate">

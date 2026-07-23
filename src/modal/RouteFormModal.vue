@@ -1,9 +1,11 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRouteStore } from '../stores/routeStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
 import BaseInput from '../components/BaseInput.vue'
+import InputDropDown from '../components/InputDropDown.vue'
 
 const props = defineProps({
   route: {
@@ -15,6 +17,7 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const routeStore = useRouteStore()
+const { routes } = storeToRefs(routeStore)
 const { showToast } = useToast()
 
 const localRoute = ref(props.route)
@@ -25,11 +28,23 @@ const form = ref({
   name: props.route?.name ?? '',
   origin: props.route?.origin ?? '',
   destination: props.route?.destination ?? '',
+  reverse_route_id: props.route?.reverse_route_id ?? '',
   price_mzn: props.route?.price_mzn ?? '',
   price_zar: props.route?.price_zar ?? '',
   duration_hours: existingDuration !== null ? Math.floor(existingDuration / 60) : '',
   duration_minutes: existingDuration !== null ? existingDuration % 60 : '',
   is_active: props.route?.is_active ?? true,
+})
+
+const reverseRouteOptions = computed(() => [
+  { id: '', name: 'Nenhuma' },
+  ...routes.value
+    .filter((r) => r.id !== localRoute.value?.id)
+    .map((r) => ({ id: r.id, name: r.name })),
+])
+
+onMounted(() => {
+  if (!routes.value.length) routeStore.fetchRoutes()
 })
 
 const formErrors = ref({ name: '', origin: '', destination: '', price_mzn: '', price_zar: '' })
@@ -79,6 +94,7 @@ async function handleSave() {
       name: form.value.name,
       origin: form.value.origin,
       destination: form.value.destination,
+      reverse_route_id: form.value.reverse_route_id || null,
       price_mzn: Number(form.value.price_mzn),
       price_zar: Number(form.value.price_zar),
       estimated_duration_minutes: (hours || minutes) ? (hours * 60 + minutes) : null,
@@ -137,6 +153,12 @@ function handleClose() {
                     @update:modelValue="form.destination = $event" />
                   <span v-if="formErrors.destination" class="fieldError">{{ formErrors.destination }}</span>
                 </div>
+              </div>
+
+              <div class="fieldGroup">
+                <InputDropDown label="Rota reversa (ida/volta)" :modelValue="form.reverse_route_id"
+                  :options="reverseRouteOptions" @update:modelValue="form.reverse_route_id = $event" />
+                <span class="fieldHint">Liga esta rota à sua rota de sentido oposto, para as viagens completas.</span>
               </div>
 
               <div class="fieldRow">
@@ -282,6 +304,11 @@ function handleClose() {
   font-size: 11px;
   color: #e74c3c;
   padding-left: 2px;
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: #999;
 }
 
 .activeToggle {

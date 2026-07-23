@@ -4,6 +4,7 @@ import { useTripStore } from '../stores/tripStore'
 import { useRouteStore } from '../stores/routeStore'
 import { useVehicleStore } from '../stores/vehicleStore'
 import { useDriverStore } from '../stores/driverStore'
+import { useHelperStore } from '../stores/helperStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
@@ -23,6 +24,7 @@ const tripStore = useTripStore()
 const routeStore = useRouteStore()
 const vehicleStore = useVehicleStore()
 const driverStore = useDriverStore()
+const helperStore = useHelperStore()
 const { showToast } = useToast()
 
 const localTrip = ref(props.trip)
@@ -33,6 +35,8 @@ const form = ref({
   departure_time: (props.trip?.departure_time ?? '17:00').slice(0, 5),
   vehicle_id: props.trip?.vehicle?.id ?? '',
   driver_id: props.trip?.driver?.id ?? '',
+  helper_id: props.trip?.helper?.id ?? '',
+  permit_number: props.trip?.permit_number ?? '',
   status: props.trip?.status ?? 'scheduled',
   notes: props.trip?.notes ?? '',
 })
@@ -52,6 +56,7 @@ const statusOptions = [
 const routeOptions = computed(() => routeStore.routes.map((r) => ({ id: r.id, name: r.name })))
 const vehicleOptions = computed(() => vehicleStore.vehicles.map((v) => ({ id: v.id, name: `${v.plate} - ${v.brand} ${v.model}` })))
 const driverOptions = computed(() => driverStore.drivers.map((d) => ({ id: d.id, name: d.name })))
+const helperOptions = computed(() => helperStore.helpers.map((h) => ({ id: h.id, name: h.name })))
 
 function clearErrors() {
   formErrors.value = { route_id: '', departure_date: '', departure_time: '' }
@@ -92,6 +97,8 @@ async function handleSave() {
       const payload = {
         vehicle_id: form.value.vehicle_id || null,
         driver_id: form.value.driver_id || null,
+        helper_id: form.value.helper_id || null,
+        permit_number: form.value.permit_number || null,
         departure_time: form.value.departure_time,
         status: form.value.status,
         notes: form.value.notes || null,
@@ -106,6 +113,8 @@ async function handleSave() {
         departure_time: form.value.departure_time,
         vehicle_id: form.value.vehicle_id || null,
         driver_id: form.value.driver_id || null,
+        helper_id: form.value.helper_id || null,
+        permit_number: form.value.permit_number || null,
         notes: form.value.notes || null,
       }
       const res = await tripStore.createTrip(payload)
@@ -128,6 +137,7 @@ onMounted(() => {
   routeStore.fetchRoutes({ per_page: 100 })
   vehicleStore.fetchVehicles({ per_page: 100 })
   driverStore.fetchDrivers({ per_page: 100 })
+  helperStore.fetchHelpers({ per_page: 100, all: 1 })
 })
 </script>
 
@@ -185,6 +195,16 @@ onMounted(() => {
               <div class="fieldGroup">
                 <InputDropDown label="Motorista" :modelValue="form.driver_id" :options="driverOptions"
                   @update:modelValue="form.driver_id = $event" />
+              </div>
+
+              <div class="fieldGroup">
+                <InputDropDown label="Ajudante" :modelValue="form.helper_id" :options="helperOptions"
+                  @update:modelValue="form.helper_id = $event" />
+              </div>
+
+              <div class="fieldGroup">
+                <BaseInput label="Permit Nº" :modelValue="form.permit_number"
+                  @update:modelValue="form.permit_number = $event" />
               </div>
 
               <div class="fieldGroup" v-if="localTrip">

@@ -1,27 +1,80 @@
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { toPng } from 'html-to-image'
+import { usePublicBookingStore } from '../../stores/publicBookingStore'
 import { useToast } from '../../composables/useToast'
 import { formatDate } from '../../utils/formatDate'
 import TicketModal from '../../components/TicketModal.vue'
 import TicketCard from '../../components/TicketCard.vue'
+import SendTicketWhatsAppModal from '../../components/SendTicketWhatsAppModal.vue'
 
 const router = useRouter()
 const route = useRoute()
+const bookingStore = usePublicBookingStore()
 const { showToast } = useToast()
 
-const bookings = JSON.parse(route.query.bookings ?? '[]')
+const sessionToken = route.query.session_token
+const paymentMethodUsed = route.query.method ?? null
+
 const selectedTicket = ref(null)
 const renderingForCapture = ref(false)
 const downloading = ref(false)
 const captureRefs = ref([])
+const showWhatsAppModal = ref(false)
+const sendingWhatsApp = ref(false)
 
-const tripInfo = computed(() => ({
-  route: route.query.route_name ?? 'Maputo → Johannesburg',
-  date: route.query.date ?? '',
-  time: route.query.time ?? '17:00',
-}))
+const loading = ref(true)
+const loadError = ref(false)
+const displayBookings = ref([])
+const tripInfo = ref({ route: 'Maputo → Johannesburg', date: '', time: '17:00' })
+
+// O bilhete final nunca e construido com dados da URL (editaveis por qualquer pessoa) -
+// vem sempre desta consulta ao backend, pelo session_token (UUID imprevisivel).
+async function loadBookings() {
+  if (!sessionToken) {
+    loadError.value = true
+    loading.value = false
+    return
+  }
+
+  const maxAttempts = paymentMethodUsed === 'card' ? 5 : 1
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const res = await bookingStore.fetchGroupStatus(sessionToken)
+      displayBookings.value = res.data
+      if (res.trip) {
+        tripInfo.value = {
+          route: res.trip.route_name ?? tripInfo.value.route,
+          date: res.trip.departure_date ?? tripInfo.value.date,
+          time: res.trip.departure_time?.slice(0, 5) ?? tripInfo.value.time,
+        }
+      }
+      loadError.value = false
+
+      const settled = res.data.every((b) => b.payment_status !== 'pending' || paymentMethodUsed !== 'card')
+      if (settled) break
+    } catch {
+      loadError.value = true
+      break
+    }
+
+    if (attempt < maxAttempts - 1) await new Promise((r) => setTimeout(r, 1500))
+  }
+
+  loading.value = false
+}
+
+onMounted(loadBookings)
+
+const allPaid = computed(() =>
+  displayBookings.value.length > 0 && displayBookings.value.every((b) => b.payment_status === 'paid')
+)
+
+const somePendingPayment = computed(() =>
+  displayBookings.value.some((b) => b.payment_status === 'pending')
+)
 
 const tripSummary = computed(() => {
   const parts = [tripInfo.value.route]
@@ -30,23 +83,63 @@ const tripSummary = computed(() => {
   return parts.join(' · ')
 })
 
-const isPlural = computed(() => bookings.length > 1)
+const isPlural = computed(() => displayBookings.value.length > 1)
 
 function viewTicket(booking) {
   selectedTicket.value = booking
 }
 
-function sendWhatsApp(allBookings) {
-  const numero = '258862051706'
-  const ticketsText = allBookings
-    .map((b, i) =>
-      `Bilhete ${i + 1}: ${b.ticket_number}\n` +
-      `Assento: ${b.seat_number}\n` +
-      `Passageiro: ${b.passenger_name}`
-    )
-    .join('\n\n')
-  const msg = `Olá, aqui estão os detalhes da minha reserva:\n\n${ticketsText}`
-  window.open('https://wa.me/' + numero + '?text=' + encodeURIComponent(msg), '_blank')
+async function captureTicketImage(el) {
+  const dataUrl = await toPng(el, { pixelRatio: 2, backgroundColor: '#ffffff' })
+  const blob = await (await fetch(dataUrl)).blob()
+  return blob
+}
+
+async function handleSendWhatsApp(phone) {
+  if (sendingWhatsApp.value || downloading.value) return
+
+  const confirmedBookings = displayBookings.value.filter((b) => b.status === 'confirmed')
+  if (confirmedBookings.length === 0) {
+    showToast('error', 'Nenhum bilhete confirmado para enviar.')
+    return
+  }
+
+  sendingWhatsApp.value = true
+  renderingForCapture.value = true
+  await nextTick()
+
+  let sent = 0
+  let failed = 0
+
+  for (let i = 0; i < displayBookings.value.length; i++) {
+    const booking = displayBookings.value[i]
+    if (booking.status !== 'confirmed') continue
+
+    const el = captureRefs.value[i]?.root
+    if (!el) {
+      failed++
+      continue
+    }
+
+    try {
+      const imageBlob = await captureTicketImage(el)
+      await bookingStore.sendBookingWhatsapp(sessionToken, booking.id, phone, imageBlob)
+      sent++
+    } catch {
+      failed++
+    }
+  }
+
+  renderingForCapture.value = false
+  sendingWhatsApp.value = false
+  showWhatsAppModal.value = false
+
+  if (sent > 0) {
+    showToast('success', sent > 1 ? `${sent} bilhetes enviados para o seu WhatsApp.` : 'Bilhete enviado para o seu WhatsApp.')
+  }
+  if (failed > 0) {
+    showToast('error', `${failed} bilhete(s) não puderam ser enviados. Tente novamente.`)
+  }
 }
 
 async function downloadImage(el, filename) {
@@ -58,7 +151,7 @@ async function downloadImage(el, filename) {
 }
 
 async function downloadTicket(allBookings) {
-  if (downloading.value) return
+  if (downloading.value || sendingWhatsApp.value) return
 
   downloading.value = true
   renderingForCapture.value = true
@@ -87,13 +180,34 @@ function newBooking() {
 <template>
   <div class="page">
 
+    <!-- A CONFIRMAR -->
+    <div v-if="loading" class="stateWrap">
+      <div class="stateSpinner" />
+      <p class="stateText">A confirmar a sua reserva...</p>
+    </div>
+
+    <!-- ERRO -->
+    <div v-else-if="loadError" class="stateWrap">
+      <i class="fi fi-rs-triangle-warning stateIcon" />
+      <p class="stateTitle">Não foi possível confirmar a sua reserva</p>
+      <p class="stateText">
+        Contacte o nosso balcão pelo
+        <a href="tel:+258867732237" class="infoPhone">+258 867732237</a>
+        com o número do seu bilhete.
+      </p>
+    </div>
+
+    <template v-else>
+
     <!-- SUCCESS BANNER -->
     <div class="banner">
       <div class="bannerCheck">
         <i class="fi fi-sr-check checkIcon" />
       </div>
-      <h1 class="bannerTitle">Reserva confirmada!</h1>
-      <p class="bannerSub">O seu lugar está garantido.</p>
+      <h1 class="bannerTitle">{{ allPaid ? 'Pagamento confirmado!' : 'Reserva registada!' }}</h1>
+      <p class="bannerSub">
+        {{ somePendingPayment ? 'O seu lugar está reservado. Pagamento pendente de confirmação.' : 'O seu lugar está garantido.' }}
+      </p>
       <p class="bannerTrip">{{ tripSummary }}</p>
     </div>
 
@@ -103,7 +217,7 @@ function newBooking() {
       <!-- BILHETES -->
       <div class="ticketList">
         <div
-          v-for="(booking, idx) in bookings"
+          v-for="(booking, idx) in displayBookings"
           :key="idx"
           class="ticketRow"
         >
@@ -124,10 +238,10 @@ function newBooking() {
       <!-- ACÇÕES -->
       <div class="actionsCard">
         <p class="actionsTitle">
-          {{ isPlural ? `O que deseja fazer com os ${bookings.length} bilhetes?` : 'O que deseja fazer com o bilhete?' }}
+          {{ isPlural ? `O que deseja fazer com os ${displayBookings.length} bilhetes?` : 'O que deseja fazer com o bilhete?' }}
         </p>
 
-        <button class="actionRow" :class="{ disabled: downloading }" :disabled="downloading" @click="downloadTicket(bookings)">
+        <button class="actionRow" :class="{ disabled: downloading }" :disabled="downloading" @click="downloadTicket(displayBookings)">
           <div class="actionIconWrap dark">
             <i class="fi fi-rs-download actionIcon" />
           </div>
@@ -144,7 +258,7 @@ function newBooking() {
 
         <div class="actionDivider" />
 
-        <button class="actionRow" @click="sendWhatsApp(bookings)">
+        <button class="actionRow" @click="showWhatsAppModal = true">
           <div class="actionIconWrap green">
           <i class="fi fi-brands-whatsapp actionIcon" />
           </div>
@@ -188,16 +302,27 @@ function newBooking() {
       @close="selectedTicket = null"
     />
 
+    <!-- ENVIAR POR WHATSAPP -->
+    <SendTicketWhatsAppModal
+      v-if="showWhatsAppModal"
+      :sending="sendingWhatsApp"
+      :plural="isPlural"
+      @send="handleSendWhatsApp"
+      @close="showWhatsAppModal = false"
+    />
+
     <!-- CARTOES ESCONDIDOS PARA CAPTURA DE IMAGEM -->
     <div v-if="renderingForCapture" class="captureArea">
       <TicketCard
-        v-for="(booking, idx) in bookings"
+        v-for="(booking, idx) in displayBookings"
         :key="idx"
         :ref="el => (captureRefs[idx] = el)"
         :booking="booking"
         :trip-info="tripInfo"
       />
     </div>
+
+    </template>
 
   </div>
 </template>
@@ -208,6 +333,50 @@ function newBooking() {
   background: #F6F6F6;
   display: flex;
   flex-direction: column;
+}
+
+/* ESTADOS DE CARREGAMENTO/ERRO */
+.stateWrap {
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+}
+
+.stateSpinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #eee;
+  border-top-color: #922877;
+  border-radius: 50%;
+  animation: stateSpin 0.7s linear infinite;
+}
+
+@keyframes stateSpin {
+  to { transform: rotate(360deg); }
+}
+
+.stateIcon {
+  font-size: 32px;
+  color: #FFB300;
+}
+
+.stateTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #221F20;
+}
+
+.stateText {
+  font-size: 14px;
+  color: #666;
+  max-width: 360px;
+  line-height: 1.55;
 }
 
 /* BANNER */
@@ -531,11 +700,11 @@ function newBooking() {
 /* DESKTOP */
 @media (min-width: 768px) {
   .banner { padding: 64px 40px 100px; }
-  .content { padding: 0 40px 64px; }
+  .content { padding: 0 40px 64px; max-width: 540px; }
 }
 
 @media (min-width: 1024px) {
   .banner { padding: 80px 80px 120px; }
-  .content { padding: 0 80px 80px; }
+  .content { padding: 0 80px 80px; max-width: 560px; }
 }
 </style>

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDriverStore } from '../stores/driverStore'
 import { formatDate } from '../utils/formatDate'
+import { formatPhone } from '../utils/formatPhone'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
 
@@ -34,7 +35,7 @@ const rows = computed(() =>
     name: d.name,
     license_number: d.license_number,
     license_expiry: formatDate(d.license_expiry),
-    phone: d.phone,
+    phone: formatPhone(d.phone),
     is_active: d.is_active ? 'Activo' : 'Inactivo',
   }))
 )

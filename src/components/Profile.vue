@@ -562,4 +562,29 @@ function handleLogout() {
   opacity: 0;
   transform: translateY(-8px);
 }
+
+@media (max-width: 767px) {
+  .profile {
+    padding: 4px;
+    gap: 0;
+  }
+
+  .profileImg {
+    height: 26px;
+    width: 26px;
+    margin-right: 0;
+  }
+
+  .nameRole {
+    display: none;
+  }
+
+  .drop {
+    margin-left: 4px;
+  }
+
+  .ProfileCard {
+    width: min(300px, calc(100vw - 24px));
+  }
+}
 </style>

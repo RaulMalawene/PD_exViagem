@@ -24,6 +24,11 @@ const paymentMethodOptions = [
   { value: 'cash', label: 'Dinheiro' },
   { value: 'transfer_mz', label: 'Transferência (MZ)' },
   { value: 'transfer_za', label: 'Transferência (ZA)' },
+  { value: 'card', label: 'Cartão' },
+  { value: 'pos', label: 'POS' },
+  { value: 'deposit', label: 'Depósito' },
+  { value: 'mpesa', label: 'M-Pesa' },
+  { value: 'emola', label: 'E-Mola' },
 ]
 
 const currencyOptions = [
@@ -33,6 +38,7 @@ const currencyOptions = [
 
 // --- Bilhete: confirmar / cancelar / desconto ---
 const confirmPaymentMethod = ref('')
+const confirmError = ref('')
 const isConfirming = ref(false)
 
 const showCancelForm = ref(false)
@@ -44,18 +50,20 @@ const showDiscountForm = ref(false)
 const discountForm = ref({
   amount: invoice.value?.discount_amount ?? 0,
   reason: invoice.value?.discount_reason ?? '',
-  payment_method: invoice.value?.payment_method ?? '',
 })
 const isSavingDiscount = ref(false)
 
 async function handleConfirm() {
+  confirmError.value = ''
+  if (!confirmPaymentMethod.value) {
+    confirmError.value = 'Seleccione o método de pagamento.'
+    return
+  }
+
   isConfirming.value = true
 
   try {
-    const payload = {}
-    if (confirmPaymentMethod.value) payload.payment_method = confirmPaymentMethod.value
-
-    const res = await bookingStore.confirmBooking(props.booking.id, payload)
+    const res = await bookingStore.confirmBooking(props.booking.id, { payment_method: confirmPaymentMethod.value })
     bookingStatus.value = res.data.status
     invoice.value = res.data.invoice
     changed.value = true
@@ -98,7 +106,6 @@ async function handleSaveDiscount() {
     const res = await bookingStore.updateBookingPayment(props.booking.id, {
       discount_amount: discountForm.value.amount || 0,
       discount_reason: discountForm.value.reason || null,
-      payment_method: discountForm.value.payment_method || null,
     })
     invoice.value = res.data.invoice
     changed.value = true
@@ -111,7 +118,7 @@ async function handleSaveDiscount() {
   }
 }
 
-// --- Mercadorias ---
+// --- Bagagens ---
 const packages = ref([])
 const loadingPackages = ref(false)
 const showAddPackageForm = ref(false)
@@ -154,7 +161,7 @@ async function handleAddPackage() {
     changed.value = true
     showAddPackageForm.value = false
     packageForm.value = { description: '', amount: null, currency: 'MZN', payment_method: '' }
-    showToast('success', 'Mercadoria adicionada com sucesso.')
+    showToast('success', 'Bagagem adicionada com sucesso.')
   } catch (err) {
     showToast('error', parseApiError(err))
   } finally {
@@ -170,7 +177,7 @@ async function handlePayPackage(pkg) {
     const index = packages.value.findIndex((p) => p.id === pkg.id)
     if (index !== -1) packages.value[index] = res.data
     changed.value = true
-    showToast('success', 'Mercadoria marcada como paga.')
+    showToast('success', 'Bagagem marcada como paga.')
   } catch (err) {
     showToast('error', parseApiError(err))
   } finally {
@@ -186,7 +193,7 @@ async function handleCancelPackage(pkg) {
     const index = packages.value.findIndex((p) => p.id === pkg.id)
     if (index !== -1) packages.value[index] = res.data
     changed.value = true
-    showToast('success', 'Mercadoria cancelada.')
+    showToast('success', 'Bagagem cancelada.')
   } catch (err) {
     showToast('error', parseApiError(err))
   } finally {
@@ -254,13 +261,6 @@ onMounted(() => {
                     <label class="fieldLabel">Motivo do desconto</label>
                     <input class="textInput" type="text" v-model="discountForm.reason" placeholder="Opcional" />
                   </div>
-                  <div class="fieldGroup">
-                    <label class="fieldLabel">Método de pagamento</label>
-                    <select class="selectInput" v-model="discountForm.payment_method">
-                      <option value="">Não definir</option>
-                      <option v-for="opt in paymentMethodOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                    </select>
-                  </div>
                   <div class="cancelActions">
                     <button class="btnSecondary" @click="showDiscountForm = false">Voltar</button>
                     <button class="actionBtn secondaryBtn" :disabled="isSavingDiscount" @click="handleSaveDiscount">
@@ -274,9 +274,10 @@ onMounted(() => {
                 <div class="fieldGroup">
                   <label class="fieldLabel">Método de pagamento na confirmação</label>
                   <select class="selectInput" v-model="confirmPaymentMethod">
-                    <option value="">Não definir</option>
+                    <option value="" disabled>Seleccione...</option>
                     <option v-for="opt in paymentMethodOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                   </select>
+                  <span v-if="confirmError" class="fieldError">{{ confirmError }}</span>
                 </div>
                 <button class="actionBtn green" :disabled="isConfirming" @click="handleConfirm">
                   <i class="fi fi-rs-check" />
@@ -311,7 +312,7 @@ onMounted(() => {
 
             <div class="section">
               <div class="sectionHeader">
-                <span class="sectionTitle">Mercadorias</span>
+                <span class="sectionTitle">Bagagens</span>
               </div>
 
               <div v-if="loadingPackages" class="stateBox">
@@ -319,7 +320,7 @@ onMounted(() => {
               </div>
 
               <template v-else>
-                <div v-if="packages.length === 0" class="emptyPackages">Nenhuma mercadoria registada.</div>
+                <div v-if="packages.length === 0" class="emptyPackages">Nenhuma bagagem registada.</div>
 
                 <div v-else class="packageList">
                   <div v-for="pkg in packages" :key="pkg.id" class="packageRow">
@@ -344,14 +345,14 @@ onMounted(() => {
                 <template v-if="!showAddPackageForm">
                   <button class="actionBtn secondaryBtn" @click="showAddPackageForm = true">
                     <i class="fi fi-rs-box" />
-                    Adicionar mercadoria
+                    Adicionar bagagem
                   </button>
                 </template>
 
                 <template v-else>
                   <div class="fieldGroup">
                     <label class="fieldLabel">Descrição</label>
-                    <input class="textInput" type="text" v-model="packageForm.description" placeholder="Ex: Bagagem em excesso, caixa de mercadoria" />
+                    <input class="textInput" type="text" v-model="packageForm.description" placeholder="Ex: Bagagem em excesso" />
                   </div>
                   <div class="fieldRow">
                     <div class="fieldGroup">
@@ -750,5 +751,18 @@ onMounted(() => {
 .drawer-enter-from,
 .drawer-leave-to {
   transform: translateX(100%);
+}
+
+@media (max-width: 767px) {
+  .drawerOverlay {
+    padding-left: 12px;
+    padding-right: 12px;
+    justify-content: center;
+  }
+
+  .drawerCard {
+    max-width: 100%;
+    max-height: calc(100vh - 24px);
+  }
 }
 </style>

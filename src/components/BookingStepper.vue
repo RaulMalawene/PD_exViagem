@@ -3,18 +3,29 @@ const props = defineProps({
   current: { type: Number, default: 1 },
 })
 
+const emit = defineEmits(['step-click'])
+
 const steps = [
   { n: 1, label: 'Viagem' },
   { n: 2, label: 'Assentos' },
   { n: 3, label: 'Dados' },
   { n: 4, label: 'Pagamento' },
 ]
+
+function handleClick(step) {
+  if (step.n >= props.current) return
+  emit('step-click', step.n)
+}
 </script>
 
 <template>
   <div class="stepper">
     <div v-for="(step, i) in steps" :key="step.n" class="stepWrap">
-      <div class="step" :class="{ active: step.n === current, done: step.n < current }">
+      <div
+        class="step"
+        :class="{ active: step.n === current, done: step.n < current, clickable: step.n < current }"
+        @click="handleClick(step)"
+      >
         <div class="stepCircle">
           <i v-if="step.n < current" class="fi fi-sr-check checkIcon" />
           <span v-else>{{ step.n }}</span>
@@ -47,6 +58,18 @@ const steps = [
   flex-direction: column;
   align-items: center;
   gap: 6px;
+}
+
+.step.clickable {
+  cursor: pointer;
+}
+
+.step.clickable:hover .stepCircle {
+  opacity: 0.8;
+}
+
+.step.clickable:hover .stepLabel {
+  text-decoration: underline;
 }
 
 .stepCircle {
