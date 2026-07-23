@@ -1,1 +1,0 @@
-import{_ as c,o as r,c as o,a as s}from"./index-DNqPPgnS.js";const i={__name:"CleanFilter",emits:["click"],setup(l,{emit:t}){const a=t;return(n,e)=>(r(),o("div",{class:"selectWrapper",onClick:e[0]||(e[0]=p=>a("click"))},[...e[1]||(e[1]=[s("div",{class:"Icon"},[s("i",{class:"fi fi-sr-cross-circle"})],-1)])]))}},m=c(i,[["__scopeId","data-v-aaa7627f"]]);export{m as C};
