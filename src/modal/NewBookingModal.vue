@@ -3,9 +3,11 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useBookingStore } from '../stores/bookingStore'
 import { useTripStore } from '../stores/tripStore'
+import { useRouteStore } from '../stores/routeStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
+import { routeAbbr } from '../utils/routeAbbr'
 import BaseInput from '../components/BaseInput.vue'
 import InputDropDown from '../components/InputDropDown.vue'
 import flagMz from '../assets/flag_mz.svg'
@@ -15,8 +17,12 @@ const emit = defineEmits(['close'])
 
 const bookingStore = useBookingStore()
 const tripStore = useTripStore()
+const routeStore = useRouteStore()
 const { trips } = storeToRefs(tripStore)
+const { routes } = storeToRefs(routeStore)
 const { showToast } = useToast()
+
+const selectedRouteId = ref('')
 
 const sessionToken = crypto.randomUUID()
 
@@ -55,12 +61,15 @@ const currency = ref('MZN')
 const errorText = ref('')
 const isSubmitting = ref(false)
 
+const routeOptions = computed(() => routes.value.map((r) => ({ id: r.id, name: routeAbbr(r) })))
+
 const tripOptions = computed(() =>
   trips.value
     .filter((t) => !['cancelled', 'completed'].includes(t.status))
+    .filter((t) => !selectedRouteId.value || String(t.route?.id) === String(selectedRouteId.value))
     .map((t) => ({
       id: t.id,
-      name: `${t.route?.name ?? '--'} · ${formatDate(t.departure_date)} · ${(t.departure_time ?? '').slice(0, 5)}`,
+      name: `${routeAbbr(t.route)} · ${formatDate(t.departure_date)} · ${(t.departure_time ?? '').slice(0, 5)}`,
     }))
 )
 
@@ -139,6 +148,11 @@ async function loadAvailability() {
   } finally {
     loadingAvailability.value = false
   }
+}
+
+async function handleRouteChange(routeId) {
+  selectedRouteId.value = routeId
+  if (selectedTripId.value) await handleTripChange('')
 }
 
 async function handleTripChange(tripId) {
@@ -278,6 +292,7 @@ async function handleClose() {
 
 onMounted(() => {
   tripStore.fetchTrips({ per_page: 100 })
+  routeStore.fetchRoutes({ per_page: 100 })
   document.addEventListener('click', handleOutsideClick)
 })
 
@@ -301,6 +316,11 @@ onUnmounted(() => {
           <div class="modalBody">
             <!-- COLUNA ESQUERDA: viagem + mapa de assentos -->
             <div class="leftPanel">
+              <div class="fieldGroup">
+                <InputDropDown label="Rota" :modelValue="selectedRouteId" :options="routeOptions"
+                  @update:modelValue="handleRouteChange" />
+              </div>
+
               <div class="fieldGroup">
                 <InputDropDown label="Viagem" :modelValue="selectedTripId" :options="tripOptions"
                   @update:modelValue="handleTripChange" />
@@ -393,7 +413,7 @@ onUnmounted(() => {
                           </ul>
                         </Transition>
                       </div>
-                      <input v-model="passengers[seat].phone" type="tel" class="input telInput" placeholder="84 123 4567" />
+                      <input v-model="passengers[seat].phone" type="tel" class="input telInput" placeholder="84 000 0000" />
                     </div>
                   </div>
 
@@ -415,7 +435,7 @@ onUnmounted(() => {
                           </ul>
                         </Transition>
                       </div>
-                      <input v-model="passengers[seat].emergency_contact_phone" type="tel" class="input telInput" placeholder="84 123 4568" />
+                      <input v-model="passengers[seat].emergency_contact_phone" type="tel" class="input telInput" placeholder="84 000 0000" />
                     </div>
                   </div>
                 </div>
@@ -953,5 +973,39 @@ onUnmounted(() => {
 .modal-leave-to {
   opacity: 0;
   transform: translateY(14px) scale(0.98);
+}
+
+@media (max-width: 767px) {
+  .modalOverlay {
+    padding: 8px;
+  }
+
+  .modalCard {
+    max-width: 100%;
+    height: calc(100vh - 16px);
+  }
+
+  .modalBody {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .leftPanel {
+    width: 100%;
+    padding: 16px;
+  }
+
+  .verticalDivider {
+    width: 100%;
+    height: 1px;
+  }
+
+  .rightPanel {
+    padding: 16px;
+  }
+
+  .modalFooter {
+    padding: 12px 16px;
+  }
 }
 </style>

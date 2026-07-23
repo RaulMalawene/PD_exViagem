@@ -5,6 +5,7 @@ import bookingService from '../services/bookingService'
 import { useTripStore } from '../stores/tripStore'
 import { useVehicleStore } from '../stores/vehicleStore'
 import { useDriverStore } from '../stores/driverStore'
+import { useHelperStore } from '../stores/helperStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
@@ -28,6 +29,7 @@ const router = useRouter()
 const tripStore = useTripStore()
 const vehicleStore = useVehicleStore()
 const driverStore = useDriverStore()
+const helperStore = useHelperStore()
 const { showToast } = useToast()
 
 const localTrip = ref({ ...props.trip })
@@ -62,11 +64,13 @@ const statusOptions = [
 
 const vehicleOptions = computed(() => vehicleStore.vehicles.map((v) => ({ id: v.id, name: `${v.plate} - ${v.brand} ${v.model}` })))
 const driverOptions = computed(() => driverStore.drivers.map((d) => ({ id: d.id, name: d.name })))
+const helperOptions = computed(() => helperStore.helpers.map((h) => ({ id: h.id, name: h.name })))
 
 const editForm = ref({
   departure_time: (localTrip.value.departure_time ?? '').slice(0, 5),
   vehicle_id: localTrip.value.vehicle?.id ?? '',
   driver_id: localTrip.value.driver?.id ?? '',
+  helper_id: localTrip.value.helper?.id ?? '',
   permit_number: localTrip.value.permit_number ?? '',
   status: localTrip.value.status ?? 'scheduled',
   notes: localTrip.value.notes ?? '',
@@ -210,6 +214,7 @@ async function handleSaveEdit() {
     const payload = {
       vehicle_id: editForm.value.vehicle_id || null,
       driver_id: editForm.value.driver_id || null,
+      helper_id: editForm.value.helper_id || null,
       permit_number: editForm.value.permit_number || null,
       departure_time: editForm.value.departure_time,
       status: editForm.value.status,
@@ -269,6 +274,7 @@ onMounted(() => {
   fetchBookings()
   vehicleStore.fetchVehicles({ per_page: 100 })
   driverStore.fetchDrivers({ per_page: 100 })
+  helperStore.fetchHelpers({ per_page: 100, all: 1 })
 })
 </script>
 
@@ -345,6 +351,14 @@ onMounted(() => {
                   <span class="infoLabel">Motorista</span>
                 </div>
                 <span class="infoValue">{{ localTrip.driver?.name ?? '--' }}</span>
+              </div>
+
+              <div class="infoRow">
+                <div class="infoRowHeader">
+                  <i class="fi fi-rs-user-helmet-safety infoRowIcon" />
+                  <span class="infoLabel">Ajudante</span>
+                </div>
+                <span class="infoValue">{{ localTrip.helper?.name ?? '--' }}</span>
               </div>
 
               <div class="infoRow">
@@ -489,6 +503,11 @@ onMounted(() => {
                   <div class="fieldGroup">
                     <InputDropDown label="Motorista" :modelValue="editForm.driver_id" :options="driverOptions"
                       @update:modelValue="editForm.driver_id = $event" />
+                  </div>
+
+                  <div class="fieldGroup">
+                    <InputDropDown label="Ajudante" :modelValue="editForm.helper_id" :options="helperOptions"
+                      @update:modelValue="editForm.helper_id = $event" />
                   </div>
 
                   <div class="fieldGroup">

@@ -5,6 +5,7 @@ import { formatDate } from '../utils/formatDate'
 import { formatPhone } from '../utils/formatPhone'
 import Badge from '../components/Badge.vue'
 import PaymentManagerModal from './PaymentManagerModal.vue'
+import SendWhatsAppModal from './SendWhatsAppModal.vue'
 
 const props = defineProps({
   booking: { type: Object, required: true },
@@ -18,6 +19,7 @@ const localBooking = ref({ ...props.booking })
 const packages = ref([])
 const changed = ref(false)
 const showPaymentManager = ref(false)
+const showWhatsAppModal = ref(false)
 
 const packagesTotal = computed(() =>
   packages.value.reduce((sum, p) => sum + Number(p.total_amount), 0)
@@ -101,6 +103,15 @@ onMounted(() => {
                   <span class="infoValue">{{ formatPhone(localBooking.passenger?.emergency_contact_phone) ?? '--' }}</span>
                 </div>
               </div>
+
+              <button
+                v-if="localBooking.status === 'confirmed'"
+                class="whatsappBtn"
+                @click="showWhatsAppModal = true"
+              >
+                <i class="fi fi-brands-whatsapp" />
+                Enviar por WhatsApp
+              </button>
             </div>
 
             <div class="section">
@@ -161,6 +172,12 @@ onMounted(() => {
     v-if="showPaymentManager"
     :booking="localBooking"
     @close="closePaymentManager"
+  />
+
+  <SendWhatsAppModal
+    v-if="showWhatsAppModal"
+    :booking="localBooking"
+    @close="showWhatsAppModal = false"
   />
 </template>
 
@@ -369,6 +386,28 @@ onMounted(() => {
   opacity: 0.88;
 }
 
+.whatsappBtn {
+  margin-top: 4px;
+  align-self: flex-start;
+  height: 38px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.15s;
+  color: #fff;
+  background: #25D366;
+}
+
+.whatsappBtn:hover {
+  opacity: 0.88;
+}
+
 .overlay-enter-active,
 .overlay-leave-active {
   transition: opacity 0.2s ease;
@@ -388,5 +427,23 @@ onMounted(() => {
 .modal-leave-to {
   opacity: 0;
   transform: translateY(14px) scale(0.98);
+}
+
+@media (max-width: 767px) {
+  .modalOverlay {
+    padding: 12px;
+  }
+
+  .modalCard {
+    max-height: calc(100vh - 24px);
+  }
+
+  .modalCard.withDrawer {
+    transform: none;
+  }
+
+  .infoGrid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
