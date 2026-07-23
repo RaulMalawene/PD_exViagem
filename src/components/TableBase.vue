@@ -15,6 +15,10 @@ const handleRowClick = (row) => {
   if (window.getSelection()?.toString().length > 0) return
   emit('row-click', row)
 }
+
+function visibleEntries(row) {
+  return Object.entries(row).filter(([key]) => key !== 'id' && !String(key).startsWith('_'))
+}
 </script>
 
 <template>
@@ -35,14 +39,14 @@ const handleRowClick = (row) => {
           @click="displayEye !== 'none' && handleRowClick(row)"
         >
           <td
-            v-for="(value, key) in row"
+            v-for="([key, value], idx) in visibleEntries(row)"
             :key="key"
-            v-show="key !== 'id' && !String(key).startsWith('_')"
+            :data-label="headers[idx]"
           >
             {{ value }}
           </td>
 
-          <th v-if="!hideActions">
+          <th v-if="!hideActions" class="actionsCell">
             <div class="Icons">
               <i
                 class="fi fi-rs-pencil"
@@ -163,5 +167,70 @@ tbody tr.row-clickable:hover {
 .Eye i {
   position: relative;
   top: 2px;
+}
+
+@media (max-width: 767px) {
+  .tablebaseWrapper {
+    max-height: none;
+    overflow-x: visible;
+  }
+
+  table {
+    min-width: 0;
+  }
+
+  table, thead, tbody, tr, td, th {
+    display: block;
+    width: 100%;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody tr {
+    margin-bottom: 12px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 8px 12px;
+    background: #fff;
+  }
+
+  tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  td {
+    height: auto;
+    min-height: 36px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f6f6f6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: right;
+  }
+
+  td:last-of-type {
+    border-bottom: none;
+  }
+
+  td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #333;
+    text-align: left;
+  }
+
+  .actionsCell {
+    padding: 8px 0 0;
+    border-top: 1px solid #f6f6f6;
+    margin-top: 4px;
+  }
+
+  .Icons {
+    justify-content: flex-end;
+  }
 }
 </style>
