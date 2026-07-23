@@ -27,6 +27,7 @@ const editingShipment = ref(null)
 const showFormModal = ref(false)
 const deleteTarget = ref(null)
 const deletingShipment = ref(false)
+const mobileFiltersOpen = ref(false)
 
 const filters = ref({ type: '', status: '' })
 
@@ -49,6 +50,7 @@ const typeOptions = [
 const statusOptions = Object.entries(statusLabels).map(([value, label]) => ({ label, value }))
 
 const hasFilters = computed(() => !!(filters.value.type || filters.value.status || search.value))
+const activeFilterCount = computed(() => [filters.value.type, filters.value.status].filter(Boolean).length)
 
 const headers = ['Tipo', 'Remetente', 'Destinatário', 'Peso (Kg)', 'Taxa', 'Pago', 'Estado', 'Viagem']
 
@@ -179,7 +181,14 @@ onMounted(() => fetchData())
         </div>
       </div>
 
-      <div class="filtersRow">
+      <button class="filtersToggle" @click="mobileFiltersOpen = !mobileFiltersOpen">
+        <i class="fi fi-rs-filter" />
+        <span>Filtros</span>
+        <span v-if="activeFilterCount" class="filterBadge">{{ activeFilterCount }}</span>
+        <i class="fi fi-rs-angle-small-down toggleChevron" :class="{ rotated: mobileFiltersOpen }" />
+      </button>
+
+      <div class="filtersRow" :class="{ mobileOpen: mobileFiltersOpen }">
         <FilterDropDown txt="Tipo" icon="fi fi-rs-box" color="#922877" :options="typeOptions"
           :modelValue="filters.type" @update:modelValue="filters.type = $event" />
         <FilterDropDown txt="Estado" icon="fi fi-rs-list-check" color="#922877" :options="statusOptions"
@@ -303,6 +312,10 @@ header {
   flex-shrink: 0;
   height: 100%;
   cursor: pointer;
+}
+
+.filtersToggle {
+  display: none;
 }
 
 .filtersRow {
@@ -440,5 +453,109 @@ header {
   font-size: 13px;
   color: #999;
   margin-left: 8px;
+}
+
+@media (max-width: 767px) {
+  .shipmentsWrapper {
+    height: auto;
+    overflow: visible;
+  }
+
+  .filterData {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+    margin-top: 20px;
+  }
+
+  .searchData {
+    flex-wrap: wrap;
+  }
+
+  .Data {
+    width: 100%;
+    height: auto;
+  }
+
+  .Data > div {
+    width: 100%;
+  }
+
+  .filtersToggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 44px;
+    margin-top: 12px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 8px;
+    background: #fff;
+    color: #922877;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Ubuntu', sans-serif;
+    cursor: pointer;
+  }
+
+  .filterBadge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #922877;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toggleChevron {
+    margin-left: auto;
+    font-size: 12px;
+    color: #999;
+    transition: transform 0.2s;
+  }
+
+  .toggleChevron.rotated {
+    transform: rotate(180deg);
+  }
+
+  .filtersRow {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 8px;
+  }
+
+  .filtersRow.mobileOpen {
+    display: flex;
+  }
+
+  .filtersRow :deep(.DropDownWrapper) {
+    width: 100%;
+    max-width: none;
+  }
+
+  .Statistcss { margin-top: 20px; }
+
+  .table {
+    margin-top: 20px;
+    padding: 16px;
+    overflow: visible;
+  }
+
+  .table :deep(.tablebaseWrapper) {
+    height: auto;
+    max-height: none;
+  }
+
+  .loaderWrapper,
+  .emptyState {
+    height: 240px;
+  }
 }
 </style>

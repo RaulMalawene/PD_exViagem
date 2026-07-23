@@ -10,4 +10,12 @@ export default {
   updatePayment: (id, payload) => api.patch(`/bookings/${id}/payment`, payload).then((r) => r.data),
   listPackages: (id) => api.get(`/bookings/${id}/packages`).then((r) => r.data),
   createPackage: (id, payload) => api.post(`/bookings/${id}/packages`, payload).then((r) => r.data),
+  sendWhatsapp: (id, phone, imageBlob) => {
+    const formData = new FormData()
+    formData.append('phone', phone)
+    formData.append('ticket_image', imageBlob, 'ticket.png')
+    return api.post(`/bookings/${id}/send-whatsapp`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data)
+  },
 }

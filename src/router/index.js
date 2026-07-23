@@ -19,11 +19,18 @@ const BookingSuccess = () => import('../pages/public/BookingSuccess.vue')
 // Painel de gestao
 const Home = () => import('../pages/Home.vue')
 const Drivers = () => import('../pages/Drivers.vue')
+const Helpers = () => import('../pages/Helpers.vue')
 const Vehicles = () => import('../pages/Vehicles.vue')
 const Routes = () => import('../pages/Routes.vue')
 const TripSchedules = () => import('../pages/TripSchedules.vue')
 const Bookings = () => import('../pages/Bookings.vue')
-const InDevelopment = () => import('../pages/InDevelopment.vue')
+const Shipments = () => import('../pages/Shipments.vue')
+const RoundTrips = () => import('../pages/RoundTrips.vue')
+const Users = () => import('../pages/Users.vue')
+const OccupancyReport = () => import('../pages/reports/OccupancyReport.vue')
+const FinancialReport = () => import('../pages/reports/FinancialReport.vue')
+const CancellationsReport = () => import('../pages/reports/CancellationsReport.vue')
+const DiscountsReport = () => import('../pages/reports/DiscountsReport.vue')
 
 // Paginas especiais
 const DriverPhotoCapture = () => import('../pages/DriverPhotoCapture.vue')
@@ -64,7 +71,7 @@ const routes = [
         component: TripResults,
       },
       {
-        // Seleccao de assentos - mapa de lugares com hold de 10min
+        // Seleccao de assentos
         path: 'seats',
         name: 'booking.seats',
         component: TripSeats,
@@ -111,6 +118,11 @@ const routes = [
         component: Drivers,
       },
       {
+        // Gestao de ajudantes
+        path: 'helpers',
+        component: Helpers,
+      },
+      {
         // Gestao de veiculos
         path: 'vehicles',
         component: Vehicles,
@@ -126,6 +138,16 @@ const routes = [
         component: Bookings,
       },
       {
+        // Gestao de mercadorias (Correio / Drop off / Carga)
+        path: 'shipments',
+        component: Shipments,
+      },
+      {
+        // Viagens completas (ida + volta) e relatorio financeiro
+        path: 'round-trips',
+        component: RoundTrips,
+      },
+      {
         // Gestao de horarios
         path: 'schedules',
         component: TripSchedules,
@@ -136,10 +158,29 @@ const routes = [
         component: Routes,
       },
       {
-        // Gestao de utilizadores - por implementar
+        // Gestao de utilizadores
         path: 'users',
-        component: InDevelopment,
-        props: { title: 'Utilizadores' },
+        component: Users,
+      },
+      {
+        // Relatorio de ocupacao por viagem
+        path: 'reports/occupancy',
+        component: OccupancyReport,
+      },
+      {
+        // Relatorio financeiro
+        path: 'reports/financial',
+        component: FinancialReport,
+      },
+      {
+        // Relatorio de cancelamentos
+        path: 'reports/cancellations',
+        component: CancellationsReport,
+      },
+      {
+        // Relatorio de descontos aplicados
+        path: 'reports/discounts',
+        component: DiscountsReport,
       },
     ],
   },

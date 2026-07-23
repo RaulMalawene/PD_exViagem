@@ -72,5 +72,13 @@ export const useBookingStore = defineStore('booking', {
     async createPackage(id, payload) {
       return bookingService.createPackage(id, payload)
     },
+
+    async fetchPassengerConfirmedBookings(passengerId) {
+      return bookingService.list({ passenger_id: passengerId, status: 'confirmed', per_page: 50 })
+    },
+
+    async sendBookingWhatsapp(id, phone, imageBlob) {
+      return bookingService.sendWhatsapp(id, phone, imageBlob)
+    },
   },
 })

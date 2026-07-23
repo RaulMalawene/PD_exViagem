@@ -8,6 +8,7 @@ const FLOW_STORAGE_KEY = 'booking_flow_state'
 
 function emptyFlow() {
   return {
+    routeId: null,
     tripId: null,
     sessionToken: null,
     selectedSeats: [],
@@ -101,6 +102,10 @@ export const usePublicBookingStore = defineStore('publicBooking', {
       return publicBookingService.groupStatus(sessionToken)
     },
 
+    async sendBookingWhatsapp(sessionToken, bookingId, phone, imageBlob) {
+      return publicBookingService.sendWhatsapp(sessionToken, bookingId, phone, imageBlob)
+    },
+
     async createPaymentIntent(sessionToken) {
       const res = await paymentService.createIntent({ session_token: sessionToken })
       return res.data
@@ -111,9 +116,38 @@ export const usePublicBookingStore = defineStore('publicBooking', {
       sessionStorage.setItem(FLOW_STORAGE_KEY, JSON.stringify(this.flow))
     },
 
+    // Rota de cada etapa do fluxo de reserva, reconstruida a partir do estado guardado -
+    // usado pelo indicador de progresso para permitir voltar a uma etapa anterior.
+    stepRoute(step) {
+      const flow = this.flow
+
+      if (step === 1) {
+        return { path: '/booking/results', query: flow.routeId ? { route_id: flow.routeId } : {} }
+      }
+      if (step === 2) {
+        return { path: '/booking/seats', query: { trip_id: flow.tripId } }
+      }
+      if (step === 3) {
+        return {
+          path: '/booking/passengers',
+          query: {
+            trip_id: flow.tripId,
+            seats: (flow.selectedSeats ?? []).join(','),
+            session_token: flow.sessionToken,
+          },
+        }
+      }
+
+      return null
+    },
+
     clearFlow() {
       this.flow = emptyFlow()
       sessionStorage.removeItem(FLOW_STORAGE_KEY)
+      // TripSeats.vue guarda o token de sessao de reserva separadamente (persiste durante
+      // a selecao de assentos/holds) - tem de sair aqui tambem, senao uma reserva nova no
+      // mesmo separador reaproveita o token antigo e mistura bilhetes de reservas diferentes.
+      sessionStorage.removeItem('booking_session_token')
     },
   },
 })

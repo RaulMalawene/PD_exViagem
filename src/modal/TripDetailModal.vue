@@ -1285,4 +1285,85 @@ onMounted(() => {
   opacity: 0;
   transform: translateX(-16px);
 }
+
+@media (max-width: 767px) {
+  .modalOverlay {
+    padding: 8px;
+  }
+
+  .modalCard {
+    max-width: 100%;
+    max-height: calc(100vh - 16px);
+  }
+
+  .modalHeader {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .headerLeft,
+  .headerRight {
+    flex-wrap: wrap;
+  }
+
+  .modalBody {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .leftPanel {
+    width: 100%;
+    flex: none;
+    overflow: visible;
+  }
+
+  .verticalDivider {
+    width: 100%;
+    height: 1px;
+  }
+
+  .rightPanel {
+    width: 100%;
+    flex: none;
+    overflow: visible;
+  }
+
+  .manifestView,
+  .editView {
+    flex: none;
+    overflow: visible;
+  }
+
+  .manifestTop {
+    flex-wrap: wrap;
+  }
+
+  .manifestSearchCol {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .searchInput {
+    width: 100%;
+  }
+
+  .manifestBody {
+    flex: none;
+    overflow: visible;
+  }
+
+  .manifestList {
+    flex: none;
+    overflow: visible;
+  }
+
+  .editBody {
+    flex: none;
+    overflow: visible;
+  }
+
+  .fieldRow {
+    flex-direction: column;
+  }
+}
 </style>

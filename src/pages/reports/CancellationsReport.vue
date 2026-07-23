@@ -20,7 +20,9 @@ const { showToast } = useToast()
 
 const downloadingPdf = ref(false)
 const filters = ref({ date_from: '', date_to: '' })
+const mobileFiltersOpen = ref(false)
 const hasFilters = computed(() => !!(filters.value.date_from || filters.value.date_to))
+const activeFilterCount = computed(() => [filters.value.date_from, filters.value.date_to].filter(Boolean).length)
 
 const headers = ['Data', 'Passageiro', 'Rota', 'Data da Viagem', 'Motivo', 'Tipo']
 
@@ -116,7 +118,14 @@ onMounted(() => fetchData())
 
     <div class="filterData">
       <div class="searchData">
-        <div class="filters">
+        <button class="filtersToggle" @click="mobileFiltersOpen = !mobileFiltersOpen">
+          <i class="fi fi-rs-filter" />
+          <span>Filtros</span>
+          <span v-if="activeFilterCount" class="filterBadge">{{ activeFilterCount }}</span>
+          <i class="fi fi-rs-angle-small-down toggleChevron" :class="{ rotated: mobileFiltersOpen }" />
+        </button>
+
+        <div class="filters" :class="{ mobileOpen: mobileFiltersOpen }">
           <div class="dates">
             <DateFilter txt="De" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_from" />
             <DateFilter txt="Até" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_to" />
@@ -217,12 +226,16 @@ header {
 .searchData {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: flex-end;
   width: 100%;
   height: auto;
   gap: 12px;
   flex-wrap: wrap;
   flex-shrink: 0;
+}
+
+.filtersToggle {
+  display: none;
 }
 
 .filters {
@@ -396,5 +409,118 @@ header {
 
 @media (min-width: 1280px) and (max-width: 1439px) {
   .table { padding: 36px; }
+}
+
+@media (max-width: 767px) {
+  .reportWrapper {
+    height: auto;
+    overflow: visible;
+  }
+
+  .filterData {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+    margin-top: 20px;
+  }
+
+  .searchData {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtersToggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 44px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 8px;
+    background: #fff;
+    color: #922877;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Ubuntu', sans-serif;
+    cursor: pointer;
+  }
+
+  .filterBadge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #922877;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toggleChevron {
+    margin-left: auto;
+    font-size: 12px;
+    color: #999;
+    transition: transform 0.2s;
+  }
+
+  .toggleChevron.rotated {
+    transform: rotate(180deg);
+  }
+
+  .filters {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 12px;
+  }
+
+  .filters.mobileOpen {
+    display: flex;
+  }
+
+  .dates,
+  .dropdowns {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .dates > *,
+  .dropdowns > * {
+    width: 100%;
+    max-width: none;
+  }
+
+  .Data {
+    width: 100%;
+    height: auto;
+    flex-direction: column;
+    margin-top: 12px;
+  }
+
+  .Data > div {
+    width: 100%;
+  }
+
+  .Statistcss { margin-top: 20px; }
+
+  .table {
+    margin-top: 20px;
+    padding: 16px;
+    overflow: visible;
+  }
+
+  .table :deep(.tablebaseWrapper) {
+    height: auto;
+    max-height: none;
+  }
+
+  .loaderWrapper,
+  .emptyState {
+    height: 240px;
+  }
 }
 </style>
