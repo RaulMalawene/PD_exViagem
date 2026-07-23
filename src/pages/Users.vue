@@ -432,4 +432,58 @@ header {
   color: #999;
   margin-left: 8px;
 }
+
+@media (max-width: 767px) {
+  .usersWrapper {
+    height: auto;
+    overflow: visible;
+  }
+
+  .filterData {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+    margin-top: 20px;
+  }
+
+  .searchData {
+    flex-wrap: wrap;
+  }
+
+  .Data {
+    width: 100%;
+    height: auto;
+  }
+
+  .Data > div {
+    width: 100%;
+  }
+
+  .filtersRow {
+    margin-top: 12px;
+  }
+
+  .filtersRow :deep(.DropDownWrapper) {
+    flex: 1;
+    max-width: none;
+  }
+
+  .Statistcss { margin-top: 20px; }
+
+  .table {
+    margin-top: 20px;
+    padding: 16px;
+    overflow: visible;
+  }
+
+  .table :deep(.tablebaseWrapper) {
+    height: auto;
+    max-height: none;
+  }
+
+  .loaderWrapper,
+  .emptyState {
+    height: 240px;
+  }
+}
 </style>

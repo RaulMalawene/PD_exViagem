@@ -8,7 +8,6 @@ import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
 import { routeAbbr } from '../utils/routeAbbr'
-import BaseInput from '../components/BaseInput.vue'
 import InputDropDown from '../components/InputDropDown.vue'
 
 const props = defineProps({
@@ -31,7 +30,6 @@ const localRoundTrip = ref(props.roundTrip)
 const selectedRouteId = ref(props.roundTrip?.outbound_trip?.route?.id ?? '')
 
 const form = ref({
-  process_number: props.roundTrip?.process_number ?? '',
   outbound_trip_id: props.roundTrip?.outbound_trip?.id ?? '',
   return_trip_id: props.roundTrip?.return_trip?.id ?? '',
   notes: props.roundTrip?.notes ?? '',
@@ -74,10 +72,6 @@ function handleRouteChange(routeId) {
 function validate() {
   errorText.value = ''
 
-  if (!form.value.process_number.trim()) {
-    errorText.value = 'O número de processo é obrigatório.'
-    return false
-  }
   if (!form.value.outbound_trip_id) {
     errorText.value = 'Escolha a viagem de ida.'
     return false
@@ -92,7 +86,6 @@ async function handleSave() {
 
   try {
     const payload = {
-      process_number: form.value.process_number.trim(),
       outbound_trip_id: Number(form.value.outbound_trip_id),
       return_trip_id: form.value.return_trip_id ? Number(form.value.return_trip_id) : null,
       notes: form.value.notes || null,
@@ -144,9 +137,9 @@ onMounted(() => {
           </div>
 
           <div class="modalBody">
-            <div class="fieldGroup">
-              <BaseInput label="Número de processo" :modelValue="form.process_number"
-                @update:modelValue="form.process_number = $event" />
+            <div v-if="localRoundTrip" class="fieldGroup">
+              <label class="fieldLabel">Número de processo</label>
+              <div class="readOnlyValue">{{ localRoundTrip.process_number }}</div>
             </div>
 
             <div class="fieldGroup">
@@ -266,6 +259,18 @@ onMounted(() => {
 .fieldHint {
   font-size: 11px;
   color: #999;
+}
+
+.readOnlyValue {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: #f6f6f6;
+  color: #555;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .textarea {

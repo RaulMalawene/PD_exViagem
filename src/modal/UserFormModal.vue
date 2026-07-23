@@ -83,6 +83,7 @@ async function handleSave() {
       const res = await userStore.createUser(payload)
       localUser.value = res.data
       showToast('success', 'Utilizador criado! As credenciais foram enviadas por email.')
+      emit('close', true)
     }
   } catch (err) {
     showToast('error', parseApiError(err))
