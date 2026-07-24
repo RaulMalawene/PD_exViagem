@@ -207,12 +207,10 @@ onMounted(() => fetchData())
 
 <style scoped>
 .schedulesWrapper {
-  height: 100%;
   width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 header {
@@ -227,11 +225,8 @@ header {
 }
 
 .filterData {
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   width: 100%;
   margin-top: 40px;
 }
@@ -270,21 +265,13 @@ header {
 
 .table {
   margin-top: 24px;
-  flex: 1;
-  min-height: 0;
   width: 100%;
   background: white;
   padding: clamp(24px, 3.5vw, 60px);
   border-radius: 12px;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.table :deep(.tablebaseWrapper) {
-  height: 420px;
-  max-height: 420px;
 }
 
 .loaderWrapper,
@@ -389,15 +376,7 @@ header {
 }
 
 @media (max-width: 767px) {
-  .schedulesWrapper {
-    height: auto;
-    overflow: visible;
-  }
-
   .filterData {
-    flex: none;
-    min-height: 0;
-    overflow: visible;
     margin-top: 20px;
   }
 
@@ -423,12 +402,6 @@ header {
   .table {
     margin-top: 20px;
     padding: 16px;
-    overflow: visible;
-  }
-
-  .table :deep(.tablebaseWrapper) {
-    height: auto;
-    max-height: none;
   }
 
   .loaderWrapper,

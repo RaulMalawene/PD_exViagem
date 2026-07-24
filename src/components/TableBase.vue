@@ -75,8 +75,6 @@ function visibleEntries(row) {
 
 <style scoped>
 .tablebaseWrapper {
-  max-height: 250px;
-  overflow-y: auto;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   position: relative;

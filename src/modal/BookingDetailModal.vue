@@ -21,9 +21,18 @@ const changed = ref(false)
 const showPaymentManager = ref(false)
 const showWhatsAppModal = ref(false)
 
-const packagesTotal = computed(() =>
-  packages.value.reduce((sum, p) => sum + Number(p.total_amount), 0)
-)
+const packageGroups = computed(() => {
+  const groups = {}
+
+  for (const p of packages.value) {
+    const currency = p.currency ?? 'MZN'
+    groups[currency] ??= { count: 0, total: 0 }
+    groups[currency].count += 1
+    groups[currency].total += Number(p.total_amount)
+  }
+
+  return groups
+})
 
 async function refreshBooking() {
   const res = await bookingStore.fetchBooking(localBooking.value.id)
@@ -152,9 +161,9 @@ onMounted(() => {
                 <span class="summaryAmount">{{ localBooking.invoice.total_amount }} {{ localBooking.invoice.currency }}</span>
               </div>
 
-              <div v-if="packages.length" class="summaryRow">
-                <span class="summaryLabel">Mercadorias ({{ packages.length }})</span>
-                <span class="summaryAmount">{{ packagesTotal.toFixed(2) }} {{ localBooking.invoice?.currency ?? 'MZN' }}</span>
+              <div v-for="(group, currency) in packageGroups" :key="currency" class="summaryRow">
+                <span class="summaryLabel">Mercadorias ({{ group.count }})</span>
+                <span class="summaryAmount">{{ group.total.toFixed(2) }} {{ currency }}</span>
               </div>
 
               <button class="manageBtn" @click="openPaymentManager">

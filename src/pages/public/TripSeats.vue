@@ -31,6 +31,8 @@ const sessionToken = ref(getOrCreateSessionToken())
 const seatExpiries = ref({})
 const timeLeft = ref(null)
 const pendingSeats = ref([])
+const showDriverModal = ref(false)
+const photoExpanded = ref(false)
 let timerInterval = null
 let pollInterval = null
 
@@ -169,6 +171,11 @@ function goToStep(step) {
   if (target) router.push(target)
 }
 
+function closeDriverModal() {
+  showDriverModal.value = false
+  photoExpanded.value = false
+}
+
 function proceed() {
   if (!hasSelection.value || hasPending.value) return
 
@@ -258,7 +265,7 @@ onUnmounted(() => {
             <h2 class="seatCardTitle">Escolha o seu lugar</h2>
 
             <!-- DRIVER -->
-            <div class="driverBox">
+            <button type="button" class="driverBox" @click="showDriverModal = true">
               <span class="driverLabel">Motorista</span>
               <div class="driverRow">
                 <div class="driverAvatar">
@@ -266,8 +273,9 @@ onUnmounted(() => {
                   <i v-else class="fi fi-rs-steering-wheel driverIcon" />
                 </div>
                 <span class="driverName">{{ tripData?.driver?.name ?? 'Por atribuir' }}</span>
+                <i class="fi fi-rs-angle-small-right driverChevron" />
               </div>
-            </div>
+            </button>
 
             <!-- SEAT GRID -->
             <div class="seatGrid">
@@ -332,6 +340,71 @@ onUnmounted(() => {
         </template>
       </div>
     </div>
+
+    <!-- DRIVER / VEHICLE MODAL -->
+    <Transition name="overlay">
+      <div v-if="showDriverModal" class="driverModalOverlay" @click.self="closeDriverModal">
+        <Transition name="modal" appear>
+          <div class="driverModalCard">
+            <div class="driverModalHeader">
+              <span class="driverModalTitle">Motorista e Viatura</span>
+              <button class="driverModalClose" @click="closeDriverModal">
+                <i class="fi fi-br-cross" />
+              </button>
+            </div>
+
+            <div class="driverModalBody">
+              <button
+                type="button"
+                class="driverPhotoBig"
+                :disabled="!tripData?.driver?.photo_url"
+                @click="photoExpanded = true"
+              >
+                <img v-if="tripData?.driver?.photo_url" :src="tripData.driver.photo_url" alt="" />
+                <i v-else class="fi fi-rs-steering-wheel driverPhotoBigIcon" />
+                <span v-if="tripData?.driver?.photo_url" class="driverPhotoExpandHint">
+                  <i class="fi fi-rs-expand" /> Ver foto completa
+                </span>
+              </button>
+
+              <span class="driverModalName">{{ tripData?.driver?.name ?? 'Por atribuir' }}</span>
+
+              <div class="driverModalDivider" />
+
+              <div class="vehicleInfo">
+                <div class="vehicleInfoRow">
+                  <i class="fi fi-rs-bus vehicleInfoIcon" />
+                  <div class="vehicleInfoText">
+                    <span class="vehicleInfoLabel">Modelo</span>
+                    <span class="vehicleInfoValue">
+                      {{ [tripData?.vehicle?.brand, tripData?.vehicle?.model].filter(Boolean).join(' ') || '--' }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="vehicleInfoRow">
+                  <i class="fi fi-rs-id-card-clip-alt vehicleInfoIcon" />
+                  <div class="vehicleInfoText">
+                    <span class="vehicleInfoLabel">Matrícula</span>
+                    <span class="vehicleInfoValue">{{ tripData?.vehicle?.plate ?? '--' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </div>
+    </Transition>
+
+    <!-- FULL PHOTO LIGHTBOX -->
+    <Transition name="overlay">
+      <div v-if="photoExpanded" class="photoLightbox" @click="photoExpanded = false">
+        <img :src="tripData.driver.photo_url" alt="" class="photoLightboxImg" />
+        <button class="photoLightboxClose" @click="photoExpanded = false">
+          <i class="fi fi-br-cross" />
+        </button>
+      </div>
+    </Transition>
 
   </div>
 </template>
@@ -471,6 +544,17 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
+  background: #fff;
+  font-family: 'Ubuntu', sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.driverBox:hover {
+  border-color: #922877;
+  background: #FBF7FA;
 }
 
 .driverLabel {
@@ -516,6 +600,14 @@ onUnmounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: #333;
+  flex: 1;
+  min-width: 0;
+}
+
+.driverChevron {
+  font-size: 13px;
+  color: #bbb;
+  flex-shrink: 0;
 }
 
 /* SEAT GRID */
@@ -759,5 +851,235 @@ onUnmounted(() => {
   .inner {
     max-width: 560px;
   }
+}
+
+/* DRIVER MODAL */
+.driverModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.driverModalCard {
+  width: 100%;
+  max-width: 380px;
+  max-height: calc(100vh - 80px);
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.driverModalHeader {
+  background: #922877;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.driverModalTitle {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.driverModalClose {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+
+.driverModalClose:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.driverModalBody {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.driverPhotoBig {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: #F6F6F6;
+  border: none;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.driverPhotoBig:disabled {
+  cursor: default;
+}
+
+.driverPhotoBig img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.driverPhotoBigIcon {
+  font-size: 44px;
+  color: #922877;
+}
+
+.driverPhotoExpandHint {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 6px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.driverModalName {
+  font-size: 17px;
+  font-weight: 700;
+  color: #221F20;
+  text-align: center;
+}
+
+.driverModalDivider {
+  width: 100%;
+  height: 1px;
+  background: #EEEEEE;
+}
+
+.vehicleInfo {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vehicleInfoRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vehicleInfoIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #F3ECF2;
+  color: #922877;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vehicleInfoText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.vehicleInfoLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: #bbb;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.vehicleInfoValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* PHOTO LIGHTBOX */
+.photoLightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 6000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  cursor: zoom-out;
+}
+
+.photoLightboxImg {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.photoLightboxClose {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.overlay-enter-active,
+.overlay-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.overlay-enter-from,
+.overlay-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+  transform: translateY(14px) scale(0.98);
 }
 </style>
