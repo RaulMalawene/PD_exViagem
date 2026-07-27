@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { usePublicBookingStore } from '../../stores/publicBookingStore'
 import { useToast } from '../../composables/useToast'
 import { parseApiError } from '../../utils/parseApiError'
+import { generateUuid } from '../../utils/generateUuid'
 import BookingStepper from '../../components/BookingStepper.vue'
 
 const router = useRouter()
@@ -16,7 +17,7 @@ const tripId = route.query.trip_id
 function getOrCreateSessionToken() {
   let token = sessionStorage.getItem('booking_session_token')
   if (!token) {
-    token = crypto.randomUUID()
+    token = generateUuid()
     sessionStorage.setItem('booking_session_token', token)
   }
   return token

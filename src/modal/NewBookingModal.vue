@@ -8,6 +8,7 @@ import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
 import { routeAbbr } from '../utils/routeAbbr'
+import { generateUuid } from '../utils/generateUuid'
 import BaseInput from '../components/BaseInput.vue'
 import InputDropDown from '../components/InputDropDown.vue'
 import flagMz from '../assets/flag_mz.svg'
@@ -24,7 +25,7 @@ const { showToast } = useToast()
 
 const selectedRouteId = ref('')
 
-const sessionToken = crypto.randomUUID()
+const sessionToken = generateUuid()
 
 const countries = [
   { code: 'MZ', prefix: '+258', flag: flagMz, label: 'MZ +258' },
