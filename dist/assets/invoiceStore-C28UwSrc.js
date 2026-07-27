@@ -1,1 +1,0 @@
-import{E as e,G as i}from"./index-fgDtEVrY.js";const o={confirm:c=>e.post(`/invoices/${c}/confirm`).then(n=>n.data),cancel:c=>e.post(`/invoices/${c}/cancel`).then(n=>n.data)},t=i("invoice",{actions:{async confirmInvoice(c){return o.confirm(c)},async cancelInvoice(c){return o.cancel(c)}}});export{t as u};
