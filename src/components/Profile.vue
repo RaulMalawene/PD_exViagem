@@ -563,6 +563,17 @@ function handleLogout() {
   transform: translateY(-8px);
 }
 
+@media (min-width: 768px) and (max-width: 1439px) {
+  .nameRole :deep(p) {
+    font-size: 13px !important;
+  }
+
+  .profileImg {
+    height: 26px;
+    width: 26px;
+  }
+}
+
 @media (max-width: 767px) {
   .profile {
     padding: 4px;

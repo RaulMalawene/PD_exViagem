@@ -58,4 +58,32 @@ const emit = defineEmits(['update:modelValue'])
   display: flex;
   gap: 10px;
 }
+
+@media (max-width: 767px) {
+  .DateFilterComponent p {
+    font-size: 13px;
+  }
+
+  .DateFilterComponent input {
+    height: 38px;
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .DateFilterComponent p {
+    font-size: 13px;
+  }
+
+  .DateFilterComponent input {
+    height: 38px;
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .DateFilterComponent p {
+    font-size: 13px;
+  }
+}
 </style>

@@ -394,6 +394,30 @@ nav {
   }
 }
 
+@media (max-width: 1279px) {
+  .groupHeader {
+    height: 40px;
+    padding: 12px;
+    padding-left: 18px;
+    gap: 8px;
+  }
+
+  .groupHeader :deep(p) {
+    font-size: 13px !important;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .groupHeader {
+    height: 42px;
+    padding-left: 22px;
+  }
+
+  .groupHeader :deep(p) {
+    font-size: 14px !important;
+  }
+}
+
 @media (min-width: 768px) and (max-width: 1023px) {
   .sidebarInner {
     width: 180px;
