@@ -58,9 +58,21 @@ defineProps({
   text-overflow: ellipsis;
 }
 
+@media (max-width: 767px) {
+  .statiscWrapper { min-height: 68px; padding: 10px 12px; }
+  .titleStatistc :deep(p) { font-size: 13px !important; }
+  .statiscWrapper > :deep(p) { font-size: 22px !important; }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .statiscWrapper { min-height: 68px; padding: 10px 12px; min-width: 110px; }
+  .titleStatistc :deep(p) { font-size: 13px !important; }
+  .statiscWrapper > :deep(p) { font-size: 20px !important; }
+}
+
 @media (min-width: 1024px) and (max-width: 1279px) {
   .statiscWrapper { padding: 10px 12px; min-width: 110px; }
-  .titleStatistc :deep(p) { font-size: 14px !important; }
+  .titleStatistc :deep(p) { font-size: 13px !important; }
   .statiscWrapper > :deep(p) { font-size: 22px !important; }
 }
 

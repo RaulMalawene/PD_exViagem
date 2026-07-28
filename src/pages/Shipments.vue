@@ -12,6 +12,7 @@ import Profile from '../components/Profile.vue'
 import Search from '../components/Search.vue'
 import StatiscSimple from '../components/StatiscSimple.vue'
 import TableBase from '../components/TableBase.vue'
+import Pagination from '../components/Pagination.vue'
 import IconText from '../components/IconText.vue'
 import FilterDropDown from '../components/filters/FilterDropDown.vue'
 import CleanFilter from '../components/CleanFilter.vue'
@@ -71,7 +72,7 @@ const rows = computed(() =>
 function buildParams(page = 1) {
   return {
     page,
-    per_page: 15,
+    per_page: 7,
     ...(search.value ? { search: search.value } : {}),
     ...(filters.value.type ? { type: filters.value.type } : {}),
     ...(filters.value.status ? { status: filters.value.status } : {}),
@@ -91,22 +92,6 @@ function goToPage(page) {
   if (page < 1 || page > pagination.value.last_page) return
   fetchData(page)
 }
-
-const pageNumbers = computed(() => {
-  const current = pagination.value.current_page
-  const last = pagination.value.last_page
-  if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1)
-
-  const range = []
-  const start = Math.max(1, current - 2)
-  const end = Math.min(last, current + 2)
-
-  if (start > 1) { range.push(1); if (start > 2) range.push('...') }
-  for (let i = start; i <= end; i++) range.push(i)
-  if (end < last) { if (end < last - 1) range.push('...'); range.push(last) }
-
-  return range
-})
 
 let searchTimer = null
 watch([search, filters], () => {
@@ -221,28 +206,7 @@ onMounted(() => fetchData())
             @row-delete="askDelete"
           />
 
-          <div class="pagination" v-if="pagination.last_page > 1">
-            <button class="pageBtn" :disabled="pagination.current_page === 1"
-              @click="goToPage(pagination.current_page - 1)">
-              <i class="fi fi-sr-angle-left" />
-            </button>
-
-            <template v-for="(page, i) in pageNumbers" :key="i">
-              <span v-if="page === '...'" class="pageEllipsis">&hellip;</span>
-              <button v-else class="pageNumBtn"
-                :class="{ active: page === pagination.current_page }"
-                @click="goToPage(page)">
-                {{ page }}
-              </button>
-            </template>
-
-            <button class="pageBtn" :disabled="pagination.current_page === pagination.last_page"
-              @click="goToPage(pagination.current_page + 1)">
-              <i class="fi fi-sr-angle-right" />
-            </button>
-
-            <span class="pageInfo">{{ pagination.total }} mercadorias</span>
-          </div>
+          <Pagination :pagination="pagination" @change="goToPage" />
         </template>
       </div>
     </div>
@@ -374,72 +338,6 @@ header {
   font-size: 14px;
   color: #999;
   text-align: center;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-}
-
-.pageBtn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: #f0f0f0;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #555;
-  transition: background 0.15s;
-}
-
-.pageBtn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.pageBtn:not(:disabled):hover {
-  background: #e0e0e0;
-}
-
-.pageNumBtn {
-  min-width: 32px;
-  height: 32px;
-  padding: 0 8px;
-  border: none;
-  background: #f0f0f0;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  color: #555;
-  transition: background 0.15s;
-}
-
-.pageNumBtn:hover {
-  background: #e0e0e0;
-}
-
-.pageNumBtn.active {
-  background: #922877;
-  color: white;
-  font-weight: 600;
-}
-
-.pageEllipsis {
-  font-size: 13px;
-  color: #999;
-  padding: 0 4px;
-}
-
-.pageInfo {
-  font-size: 13px;
-  color: #999;
-  margin-left: 8px;
 }
 
 @media (max-width: 767px) {

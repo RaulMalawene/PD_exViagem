@@ -167,6 +167,25 @@ tbody tr.row-clickable:hover {
   top: 2px;
 }
 
+@media (min-width: 768px) and (max-width: 1279px) {
+  th {
+    height: 42px;
+    font-size: 13px;
+  }
+
+  td {
+    height: 46px;
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  th,
+  td {
+    font-size: 14px;
+  }
+}
+
 @media (max-width: 767px) {
   .tablebaseWrapper {
     max-height: none;
@@ -200,7 +219,7 @@ tbody tr.row-clickable:hover {
 
   td {
     height: auto;
-    min-height: 36px;
+    min-height: 34px;
     padding: 6px 0;
     border-bottom: 1px solid #f6f6f6;
     display: flex;
@@ -208,6 +227,7 @@ tbody tr.row-clickable:hover {
     justify-content: space-between;
     gap: 12px;
     text-align: right;
+    font-size: 13px;
   }
 
   td:last-of-type {
@@ -219,6 +239,7 @@ tbody tr.row-clickable:hover {
     font-weight: 600;
     color: #333;
     text-align: left;
+    font-size: 13px;
   }
 
   .actionsCell {
