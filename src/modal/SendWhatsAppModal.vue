@@ -29,6 +29,9 @@ function toFlatBooking(b) {
     seat_number: b.seat_number,
     status: b.status,
     payment_method: b.invoice?.payment_method,
+    total_amount: b.invoice?.total_amount,
+    discount_amount: b.invoice?.discount_amount,
+    currency: b.invoice?.currency,
     passenger_name: b.passenger?.name,
     passenger_passport: b.passenger?.passport_number,
     passenger_passport_expiry: b.passenger?.passport_expiry,
@@ -36,8 +39,12 @@ function toFlatBooking(b) {
     boarding_time: b.boarding_stop?.boarding_time,
     _tripInfo: {
       route: b.trip?.route?.name,
+      origin: b.trip?.route?.origin,
+      destination: b.trip?.route?.destination,
       date: b.trip?.departure_date,
       time: b.trip?.departure_time?.slice(0, 5),
+      price_mzn: b.trip?.route?.price_mzn,
+      price_zar: b.trip?.route?.price_zar,
     },
     _id: b.id,
   }
@@ -341,9 +348,20 @@ function handleClose() {
   position: fixed;
   top: 0;
   left: -10000px;
-  width: 360px;
+  width: 620px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* A media query do TicketCard responde a JANELA, nao a este contentor. Sem
+   isto, a mesma reserva gerava uma imagem empilhada no telemovel e larga no
+   desktop. Aqui a largura e sempre 620px, por isso forcamos o formato largo. */
+.captureArea :deep(.ticketCard) {
+  flex-direction: row;
+}
+
+.captureArea :deep(.stub) {
+  width: 30%;
 }
 </style>

@@ -122,10 +122,11 @@ async function handleSaveDiscount() {
 const packages = ref([])
 const loadingPackages = ref(false)
 const showAddPackageForm = ref(false)
-const packageForm = ref({ description: '', amount: null, currency: 'MZN', payment_method: '' })
+const packageForm = ref({ description: '', quantity: 1, amount: null, currency: 'MZN', payment_method: '' })
 const packageError = ref('')
 const isAddingPackage = ref(false)
 const packageActionId = ref(null)
+const printingTagsId = ref(null)
 
 async function fetchPackages() {
   loadingPackages.value = true
@@ -143,6 +144,11 @@ async function handleAddPackage() {
     packageError.value = 'A descrição é obrigatória.'
     return
   }
+  const quantity = Number(packageForm.value.quantity)
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
+    packageError.value = 'A quantidade tem de ser um número inteiro entre 1 e 50.'
+    return
+  }
   if (!packageForm.value.amount || Number(packageForm.value.amount) <= 0) {
     packageError.value = 'O preço tem de ser maior que zero.'
     return
@@ -153,6 +159,7 @@ async function handleAddPackage() {
   try {
     const res = await bookingStore.createPackage(props.booking.id, {
       description: packageForm.value.description,
+      quantity,
       amount: packageForm.value.amount,
       currency: packageForm.value.currency,
       payment_method: packageForm.value.payment_method || null,
@@ -160,7 +167,7 @@ async function handleAddPackage() {
     packages.value.unshift(res.data)
     changed.value = true
     showAddPackageForm.value = false
-    packageForm.value = { description: '', amount: null, currency: 'MZN', payment_method: '' }
+    packageForm.value = { description: '', quantity: 1, amount: null, currency: 'MZN', payment_method: '' }
     showToast('success', 'Bagagem adicionada com sucesso.')
   } catch (err) {
     showToast('error', parseApiError(err))
@@ -198,6 +205,25 @@ async function handleCancelPackage(pkg) {
     showToast('error', parseApiError(err))
   } finally {
     packageActionId.value = null
+  }
+}
+
+async function handlePrintTags(pkg) {
+  if (printingTagsId.value) return
+  printingTagsId.value = pkg.id
+
+  try {
+    const blob = await invoiceStore.downloadBaggageTags(pkg.id)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `etiquetas-${pkg.tag_code}.pdf`
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    printingTagsId.value = null
   }
 }
 
@@ -326,10 +352,17 @@ onMounted(() => {
                   <div v-for="pkg in packages" :key="pkg.id" class="packageRow">
                     <div class="packageInfo">
                       <span class="packageDescription">{{ pkg.description }}</span>
+                      <span class="packageMeta">
+                        {{ pkg.quantity }} {{ pkg.quantity === 1 ? 'volume' : 'volumes' }}
+                        <template v-if="pkg.tag_code"> · {{ pkg.tag_code }}</template>
+                      </span>
                       <span class="packageAmount">{{ pkg.total_amount }} {{ pkg.currency }}</span>
                     </div>
                     <div class="packageActions">
                       <Badge :status="pkg.status" />
+                      <button class="iconBtn print" :disabled="printingTagsId === pkg.id" @click="handlePrintTags(pkg)" title="Imprimir etiquetas">
+                        <i class="fi fi-rs-print" />
+                      </button>
                       <template v-if="pkg.status === 'pending'">
                         <button class="iconBtn pay" :disabled="packageActionId === pkg.id" @click="handlePayPackage(pkg)" title="Marcar como pago">
                           <i class="fi fi-rs-check" />
@@ -354,9 +387,13 @@ onMounted(() => {
                     <label class="fieldLabel">Descrição</label>
                     <input class="textInput" type="text" v-model="packageForm.description" placeholder="Ex: Bagagem em excesso" />
                   </div>
+                  <div class="fieldGroup">
+                    <label class="fieldLabel">Quantidade de volumes</label>
+                    <input class="textInput" type="number" min="1" max="50" step="1" v-model.number="packageForm.quantity" />
+                  </div>
                   <div class="fieldRow">
                     <div class="fieldGroup">
-                      <label class="fieldLabel">Preço</label>
+                      <label class="fieldLabel">Preço (total do lote)</label>
                       <input class="textInput" type="number" min="0.01" step="0.01" v-model.number="packageForm.amount" />
                     </div>
                     <div class="fieldGroup">
@@ -694,6 +731,12 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.packageMeta {
+  font-size: 11px;
+  color: #922877;
+  font-weight: 600;
+}
+
 .packageAmount {
   font-size: 12px;
   color: #777;
@@ -731,6 +774,10 @@ onMounted(() => {
 
 .iconBtn.cancel {
   background: #d33939;
+}
+
+.iconBtn.print {
+  background: #922877;
 }
 
 .overlay-enter-active,

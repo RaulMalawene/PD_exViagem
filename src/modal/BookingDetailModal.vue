@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useBookingStore } from '../stores/bookingStore'
+import { useToast } from '../composables/useToast'
+import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
 import { formatPhone } from '../utils/formatPhone'
 import Badge from '../components/Badge.vue'
@@ -14,12 +16,14 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const bookingStore = useBookingStore()
+const { showToast } = useToast()
 
 const localBooking = ref({ ...props.booking })
 const packages = ref([])
 const changed = ref(false)
 const showPaymentManager = ref(false)
 const showWhatsAppModal = ref(false)
+const isPrintingTicket = ref(false)
 
 const packageGroups = computed(() => {
   const groups = {}
@@ -27,7 +31,7 @@ const packageGroups = computed(() => {
   for (const p of packages.value) {
     const currency = p.currency ?? 'MZN'
     groups[currency] ??= { count: 0, total: 0 }
-    groups[currency].count += 1
+    groups[currency].count += Number(p.quantity ?? 1)
     groups[currency].total += Number(p.total_amount)
   }
 
@@ -42,6 +46,25 @@ async function refreshBooking() {
 async function refreshPackages() {
   const res = await bookingStore.fetchPackages(localBooking.value.id)
   packages.value = res.data
+}
+
+async function printTicket() {
+  if (isPrintingTicket.value) return
+  isPrintingTicket.value = true
+
+  try {
+    const blob = await bookingStore.downloadTicketPdf(localBooking.value.id)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `bilhete-${localBooking.value.ticket_number}.pdf`
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    isPrintingTicket.value = false
+  }
 }
 
 function openPaymentManager() {
@@ -113,6 +136,11 @@ onMounted(() => {
                 </div>
               </div>
 
+              <button class="printTicketBtn" :disabled="isPrintingTicket" @click="printTicket">
+                <i class="fi fi-rs-print" />
+                {{ isPrintingTicket ? 'A gerar...' : 'Imprimir bilhete' }}
+              </button>
+
               <button
                 v-if="localBooking.status === 'confirmed'"
                 class="whatsappBtn"
@@ -162,7 +190,7 @@ onMounted(() => {
               </div>
 
               <div v-for="(group, currency) in packageGroups" :key="currency" class="summaryRow">
-                <span class="summaryLabel">Mercadorias ({{ group.count }})</span>
+                <span class="summaryLabel">Bagagens ({{ group.count }})</span>
                 <span class="summaryAmount">{{ group.total.toFixed(2) }} {{ currency }}</span>
               </div>
 
@@ -415,6 +443,33 @@ onMounted(() => {
 
 .whatsappBtn:hover {
   opacity: 0.88;
+}
+
+.printTicketBtn {
+  margin-top: 4px;
+  align-self: flex-start;
+  height: 38px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.15s;
+  color: #fff;
+  background: #922877;
+}
+
+.printTicketBtn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.printTicketBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .overlay-enter-active,
