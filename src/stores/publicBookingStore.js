@@ -6,6 +6,11 @@ import paymentService from '../services/paymentService'
 
 const FLOW_STORAGE_KEY = 'booking_flow_state'
 
+// Marca que a reserva ja foi paga. Fica fora do FLOW_STORAGE_KEY de proposito:
+// o clearFlow() apaga o estado do fluxo, mas esta marca tem de sobreviver para
+// a guarda do router poder impedir o regresso as etapas anteriores.
+const COMPLETED_STORAGE_KEY = 'booking_flow_completed'
+
 function emptyFlow() {
   return {
     routeId: null,
@@ -121,13 +126,20 @@ export const usePublicBookingStore = defineStore('publicBooking', {
     stepRoute(step) {
       const flow = this.flow
 
+      // Depois de pago nao se volta atras, e sem estado nao ha para onde voltar:
+      // devolver null faz o indicador de progresso deixar de oferecer o link,
+      // em vez de gerar um trip_id=null que rebentava na API.
+      if (this.isFlowCompleted()) return null
+
       if (step === 1) {
         return { path: '/booking/results', query: flow.routeId ? { route_id: flow.routeId } : {} }
       }
       if (step === 2) {
+        if (!flow.tripId) return null
         return { path: '/booking/seats', query: { trip_id: flow.tripId } }
       }
       if (step === 3) {
+        if (!flow.tripId || !flow.sessionToken) return null
         return {
           path: '/booking/passengers',
           query: {
@@ -139,6 +151,28 @@ export const usePublicBookingStore = defineStore('publicBooking', {
       }
 
       return null
+    },
+
+    // Chamado quando o pagamento fica concluido. Limpa o fluxo mas deixa a marca
+    // que impede voltar as etapas anteriores.
+    completeFlow(sessionToken) {
+      this.clearFlow()
+      sessionStorage.setItem(COMPLETED_STORAGE_KEY, sessionToken ?? '1')
+    },
+
+    isFlowCompleted() {
+      return !!sessionStorage.getItem(COMPLETED_STORAGE_KEY)
+    },
+
+    completedSessionToken() {
+      const token = sessionStorage.getItem(COMPLETED_STORAGE_KEY)
+      return token && token !== '1' ? token : null
+    },
+
+    // Uma reserva nova comeca de estaleiro limpo: usado pela landing page.
+    startNewFlow() {
+      this.clearFlow()
+      sessionStorage.removeItem(COMPLETED_STORAGE_KEY)
     },
 
     clearFlow() {

@@ -65,6 +65,10 @@ export const useBookingStore = defineStore('booking', {
       return bookingService.updatePayment(id, payload)
     },
 
+    async downloadTicketPdf(id) {
+      return bookingService.ticketPdf(id)
+    },
+
     async fetchPackages(id) {
       return bookingService.listPackages(id)
     },

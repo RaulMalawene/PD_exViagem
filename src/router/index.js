@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore, roleHomeRoute } from '../stores/authStore'
+import { usePublicBookingStore } from '../stores/publicBookingStore'
 
 // Layouts
 const DashboardLayout = () => import('../layouts/DashboardLayout.vue')
@@ -15,6 +16,7 @@ const TripSeats = () => import('../pages/public/TripSeats.vue')
 const PassengerDetails = () => import('../pages/public/PassengerDetails.vue')
 const PaymentDetails = () => import('../pages/public/PaymentDetails.vue')
 const BookingSuccess = () => import('../pages/public/BookingSuccess.vue')
+const TicketVerify = () => import('../pages/public/TicketVerify.vue')
 
 // Painel de gestao
 const Home = () => import('../pages/Home.vue')
@@ -29,6 +31,7 @@ const RoundTrips = () => import('../pages/RoundTrips.vue')
 const Users = () => import('../pages/Users.vue')
 const OccupancyReport = () => import('../pages/reports/OccupancyReport.vue')
 const FinancialReport = () => import('../pages/reports/FinancialReport.vue')
+// eslint-disable-next-line no-unused-vars -- rota comentada abaixo, ver changelog 091
 const CancellationsReport = () => import('../pages/reports/CancellationsReport.vue')
 const DiscountsReport = () => import('../pages/reports/DiscountsReport.vue')
 
@@ -51,6 +54,12 @@ const routes = [
   {
     path: '/captura-motorista/:token',
     component: DriverPhotoCapture,
+  },
+
+  // Verificacao de bilhete, aberta pelo QR code impresso
+  {
+    path: '/bilhete/:ticketNumber',
+    component: TicketVerify,
   },
 
   // Portal publico do cliente
@@ -172,11 +181,13 @@ const routes = [
         path: 'reports/financial',
         component: FinancialReport,
       },
-      {
-        // Relatorio de cancelamentos
-        path: 'reports/cancellations',
-        component: CancellationsReport,
-      },
+      // Relatorio de cancelamentos removido do menu a pedido (changelog 091).
+      // O codigo fica todo no sitio — pagina, endpoint e PDF — para se poder
+      // repor descomentando este bloco e o import respectivo.
+      // {
+      //   path: 'reports/cancellations',
+      //   component: CancellationsReport,
+      // },
       {
         // Relatorio de descontos aplicados
         path: 'reports/discounts',
@@ -191,6 +202,24 @@ const router = createRouter({
   routes,
 })
 
+// Etapas do fluxo de reserva e o que cada uma precisa para funcionar. Uma query
+// em falta significa que se chegou ali por um link velho ou pelo botao "voltar"
+// depois de o estado ter sido limpo — nesse caso volta-se ao inicio em vez de
+// chamar a API com valores vazios.
+// Confirmado contra a navegacao real de cada pagina: os assentos e o pagamento
+// so recebem trip_id (o pagamento vai buscar o session_token ao estado do
+// fluxo), e os dados do passageiro recebem tambem o session_token.
+const bookingSteps = {
+  'booking.seats': ['trip_id'],
+  'booking.passengers': ['trip_id', 'session_token'],
+  'booking.payment': ['trip_id'],
+}
+
+// Um valor que veio de um objecto nulo chega ao URL como a string "null".
+function hasValue(value) {
+  return !!value && value !== 'null' && value !== 'undefined'
+}
+
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
 
@@ -200,6 +229,25 @@ router.beforeEach((to, from, next) => {
 
   if (to.path === '/login' && authStore.token) {
     return next(roleHomeRoute(authStore.user?.role))
+  }
+
+  const required = bookingSteps[to.name]
+
+  if (required) {
+    const bookingStore = usePublicBookingStore()
+
+    // Reserva ja paga: nao se volta para tras. Reencaminha para a confirmacao.
+    if (bookingStore.isFlowCompleted()) {
+      const token = bookingStore.completedSessionToken()
+
+      return next(token
+        ? { path: '/booking/success', query: { session_token: token }, replace: true }
+        : { path: '/booking', replace: true })
+    }
+
+    if (required.some((key) => !hasValue(to.query[key]))) {
+      return next({ path: '/booking', replace: true })
+    }
   }
 
   next()

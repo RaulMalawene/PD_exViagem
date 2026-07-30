@@ -10,5 +10,9 @@ export const useInvoiceStore = defineStore('invoice', {
     async cancelInvoice(id) {
       return invoiceService.cancel(id)
     },
+
+    async downloadBaggageTags(id) {
+      return invoiceService.baggageTagsPdf(id)
+    },
   },
 })
