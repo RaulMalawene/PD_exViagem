@@ -190,8 +190,11 @@ async function confirm() {
             await new Promise((r) => setTimeout(r, 800))
         }
 
-        bookingStore.clearFlow()
-        router.push({
+        // completeFlow em vez de clearFlow, e replace em vez de push: a partir
+        // daqui o cliente nao volta as etapas anteriores nem pelo botao do
+        // browser nem pelo indicador de progresso.
+        bookingStore.completeFlow(sessionToken)
+        router.replace({
             path: '/booking/success',
             query: {
                 session_token: sessionToken,

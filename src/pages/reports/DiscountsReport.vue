@@ -20,6 +20,7 @@ const { discounts, loading } = storeToRefs(reportStore)
 const { showToast } = useToast()
 
 const downloadingPdf = ref(false)
+const downloadingExcel = ref(false)
 const filters = ref({ date_from: '', date_to: '' })
 const mobileFiltersOpen = ref(false)
 const hasFilters = computed(() => !!(filters.value.date_from || filters.value.date_to))
@@ -95,6 +96,26 @@ async function downloadPdf() {
   }
 }
 
+async function downloadExcel() {
+  downloadingExcel.value = true
+  try {
+    const params = { ...buildParams(1) }
+    delete params.page
+    delete params.per_page
+    const blob = await reportStore.downloadDiscountsExcel(params)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'relatorio-descontos.xlsx'
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    downloadingExcel.value = false
+  }
+}
+
 onMounted(() => fetchData())
 </script>
 
@@ -129,6 +150,10 @@ onMounted(() => fetchData())
           <div @click="downloadPdf">
             <IconText icon="fi fi-rs-file-pdf" :txt="downloadingPdf ? 'A gerar...' : 'Exportar PDF'"
               color="#8B9B1A" background="#922877" />
+          </div>
+          <div @click="downloadExcel">
+            <IconText icon="fi fi-rs-file-excel" :txt="downloadingExcel ? 'A gerar...' : 'Exportar Excel'"
+              color="#fff" background="#1D6F42" />
           </div>
         </div>
       </div>

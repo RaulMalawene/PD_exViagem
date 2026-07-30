@@ -22,6 +22,7 @@ const { financial, loading } = storeToRefs(reportStore)
 const { showToast } = useToast()
 
 const downloadingPdf = ref(false)
+const downloadingExcel = ref(false)
 const filters = ref({ date_from: '', date_to: '', category: '', search: '' })
 const mobileFiltersOpen = ref(false)
 const hasFilters = computed(() =>
@@ -52,17 +53,9 @@ function fmt(v) {
   return Number(v ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const categoryRows = computed(() => {
-  if (!financial.value.byCategory) return []
-  return Object.values(financial.value.byCategory).filter((c) => c.count > 0)
-})
+const categoryGroups = computed(() => financial.value.byRouteCategory ?? [])
 
-const paymentMethodRows = computed(() => {
-  if (!financial.value.byPaymentMethod) return []
-  return Object.entries(financial.value.byPaymentMethod)
-    .map(([method, values]) => ({ method, label: paymentMethodLabels[method] ?? method, ...values }))
-    .filter((m) => m.mzn > 0 || m.zar > 0)
-})
+const paymentGroups = computed(() => financial.value.byRoutePayment ?? [])
 
 const routeRows = computed(() => {
   if (!financial.value.byRoute) return []
@@ -140,6 +133,26 @@ async function downloadPdf() {
   }
 }
 
+async function downloadExcel() {
+  downloadingExcel.value = true
+  try {
+    const params = { ...buildParams(1) }
+    delete params.page
+    delete params.per_page
+    const blob = await reportStore.downloadFinancialExcel(params)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'relatorio-financeiro.xlsx'
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    downloadingExcel.value = false
+  }
+}
+
 onMounted(() => fetchData())
 </script>
 
@@ -159,6 +172,10 @@ onMounted(() => fetchData())
           <div @click="downloadPdf">
             <IconText icon="fi fi-rs-file-pdf" :txt="downloadingPdf ? 'A gerar...' : 'Exportar PDF'"
               color="#8B9B1A" background="#922877" />
+          </div>
+          <div @click="downloadExcel">
+            <IconText icon="fi fi-rs-file-excel" :txt="downloadingExcel ? 'A gerar...' : 'Exportar Excel'"
+              color="#fff" background="#1D6F42" />
           </div>
         </div>
       </div>
@@ -191,44 +208,80 @@ onMounted(() => fetchData())
         <StatiscSimple title="Total ZAR" :data="financial.total ? fmt(financial.total.zar) : null" />
       </div>
 
-      <div class="breakdowns" v-if="!loading && (categoryRows.length || paymentMethodRows.length || routeRows.length)">
-        <div class="breakdownCard" v-if="categoryRows.length">
+      <div class="breakdowns" v-if="!loading && (categoryGroups.length || paymentGroups.length || routeRows.length)">
+        <div class="breakdownCard" v-if="categoryGroups.length">
           <span class="breakdownTitle">Por Tipo</span>
           <table class="reportTable">
             <thead>
               <tr>
-                <th>Tipo</th>
+                <th>Rota / Tipo</th>
                 <th>Nº</th>
                 <th>MZN</th>
                 <th>ZAR</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="c in categoryRows" :key="c.label">
-                <td>{{ c.label }}</td>
-                <td>{{ c.count }}</td>
-                <td>{{ fmt(c.mzn) }}</td>
-                <td>{{ fmt(c.zar) }}</td>
+              <template v-for="g in categoryGroups" :key="g.route">
+                <tr class="groupRow">
+                  <td colspan="4">{{ g.route }}</td>
+                </tr>
+                <tr v-for="c in g.rows" :key="`${g.route}-${c.label}`">
+                  <td class="indented">{{ c.label }}</td>
+                  <td>{{ c.count }}</td>
+                  <td>{{ fmt(c.mzn) }}</td>
+                  <td>{{ fmt(c.zar) }}</td>
+                </tr>
+                <tr class="subtotalRow">
+                  <td class="indented">Subtotal</td>
+                  <td>{{ g.subtotal.count }}</td>
+                  <td>{{ fmt(g.subtotal.mzn) }}</td>
+                  <td>{{ fmt(g.subtotal.zar) }}</td>
+                </tr>
+              </template>
+              <tr class="totalRow">
+                <td>TOTAL</td>
+                <td>{{ financial.total?.count ?? 0 }}</td>
+                <td>{{ fmt(financial.total?.mzn) }}</td>
+                <td>{{ fmt(financial.total?.zar) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div class="breakdownCard" v-if="paymentMethodRows.length">
+        <div class="breakdownCard" v-if="paymentGroups.length">
           <span class="breakdownTitle">Por Método de Pagamento</span>
           <table class="reportTable">
             <thead>
               <tr>
-                <th>Método</th>
+                <th>Rota / Método</th>
+                <th>Nº</th>
                 <th>MZN</th>
                 <th>ZAR</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="m in paymentMethodRows" :key="m.method">
-                <td>{{ m.label }}</td>
-                <td>{{ fmt(m.mzn) }}</td>
-                <td>{{ fmt(m.zar) }}</td>
+              <template v-for="g in paymentGroups" :key="g.route">
+                <tr class="groupRow">
+                  <td colspan="4">{{ g.route }}</td>
+                </tr>
+                <tr v-for="m in g.rows" :key="`${g.route}-${m.label}`">
+                  <td class="indented">{{ m.label }}</td>
+                  <td>{{ m.count }}</td>
+                  <td>{{ fmt(m.mzn) }}</td>
+                  <td>{{ fmt(m.zar) }}</td>
+                </tr>
+                <tr class="subtotalRow">
+                  <td class="indented">Subtotal</td>
+                  <td>{{ g.subtotal.count }}</td>
+                  <td>{{ fmt(g.subtotal.mzn) }}</td>
+                  <td>{{ fmt(g.subtotal.zar) }}</td>
+                </tr>
+              </template>
+              <tr class="totalRow">
+                <td>TOTAL</td>
+                <td>{{ financial.total?.count ?? 0 }}</td>
+                <td>{{ fmt(financial.total?.mzn) }}</td>
+                <td>{{ fmt(financial.total?.zar) }}</td>
               </tr>
             </tbody>
           </table>
@@ -251,6 +304,12 @@ onMounted(() => fetchData())
                 <td>{{ r.count }}</td>
                 <td>{{ fmt(r.mzn) }}</td>
                 <td>{{ fmt(r.zar) }}</td>
+              </tr>
+              <tr class="totalRow">
+                <td>TOTAL</td>
+                <td>{{ financial.total?.count ?? 0 }}</td>
+                <td>{{ fmt(financial.total?.mzn) }}</td>
+                <td>{{ fmt(financial.total?.zar) }}</td>
               </tr>
             </tbody>
           </table>
@@ -430,6 +489,30 @@ header {
 
 .reportTable td:first-child {
   text-align: left;
+}
+
+.reportTable tr.groupRow td {
+  font-weight: 700;
+  color: #922877;
+  background: #faf6f9;
+  padding-top: 10px;
+}
+
+.reportTable tr.subtotalRow td {
+  font-style: italic;
+  color: #777;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.reportTable tr.totalRow td {
+  font-weight: 700;
+  color: #221F20;
+  background: #f5f5f5;
+  border-bottom: none;
+}
+
+.reportTable td.indented {
+  padding-left: 20px;
 }
 
 .table {
