@@ -39,7 +39,6 @@ const adminMenu = [
     items: [
       { txt: 'Ocupação por Viagem', icon: 'fi fi-rs-bus', route: '/dashboard/reports/occupancy' },
       { txt: 'Financeiro', icon: 'fi fi-rs-money-bill-wave', route: '/dashboard/reports/financial' },
-      { txt: 'Cancelamentos', icon: 'fi fi-rs-circle-xmark', route: '/dashboard/reports/cancellations' },
       { txt: 'Descontos Aplicados', icon: 'fi fi-rs-badge-percent', route: '/dashboard/reports/discounts' },
     ],
   },
@@ -56,7 +55,6 @@ const staffMenu = [
     items: [
       { txt: 'Ocupação por Viagem', icon: 'fi fi-rs-bus', route: '/dashboard/reports/occupancy' },
       { txt: 'Financeiro', icon: 'fi fi-rs-money-bill-wave', route: '/dashboard/reports/financial' },
-      { txt: 'Cancelamentos', icon: 'fi fi-rs-circle-xmark', route: '/dashboard/reports/cancellations' },
       { txt: 'Descontos Aplicados', icon: 'fi fi-rs-badge-percent', route: '/dashboard/reports/discounts' },
     ],
   },
