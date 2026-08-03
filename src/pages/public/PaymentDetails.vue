@@ -30,6 +30,9 @@ const selectedCurrency = ref('mzn')
 const submitting = ref(false)
 
 const mobilePhone = ref('')
+const mpesaWaiting = ref(false)
+const mpesaSeconds = ref(0)
+const mpesaError = ref('')
 const emolaPhone = ref('')
 
 const sessionToken = route.query.session_token ?? bookingStore.flow.sessionToken
@@ -74,13 +77,10 @@ const secondaryTotal = computed(() =>
 const methods = [
     { key: 'card', label: 'Cartão de crédito', sub: 'Visa, Mastercard', icon: cardIcon },
     { key: 'mpesa', label: 'M-Pesa', sub: 'Vodacom', icon: mpesaIcon },
-    { key: 'emola', label: 'E-Mola', sub: 'Movitel', icon: emolaIcon },
-    // { key: 'local', label: 'Pagar no local', sub: 'Pagar no dia da viagem', icon: null },
+    { key: 'emola', label: 'E-Mola', sub: 'Movitel', icon: emolaIcon, disabled: true },
 ]
 
-// "Cartão" e renderizado fora do v-for abaixo de proposito: um ref usado dentro de um
-// v-for e sempre embrulhado num array pelo Vue, mesmo so aparecendo numa iteracao - e o
-// Stripe Elements rejeita um array com "Invalid DOM element" ao tentar montar nele.
+
 const otherMethods = methods.filter((m) => m.key !== 'card')
 
 async function fetchTripData() {
@@ -103,8 +103,9 @@ function goToStep(step) {
 }
 
 function canSubmit() {
+    if (mpesaWaiting.value) return false
     if (selectedMethod.value === 'card') return cardReady.value && !cardLoading.value
-    if (selectedMethod.value === 'mpesa') return mobilePhone.value
+    if (selectedMethod.value === 'mpesa') return /^(?:\+?258)?8[45]\d{7}$/.test(mobilePhone.value.replace(/[\s-]/g, ''))
     if (selectedMethod.value === 'emola') return emolaPhone.value
     if (selectedMethod.value === 'local') return true
     return false
@@ -170,6 +171,35 @@ watch(selectedMethod, (method) => {
     }
 })
 
+/**
+ * O C2B do M-Pesa e sincrono: este pedido fica pendurado enquanto o cliente
+ * digita o PIN. Nao ha webhook — a resposta e o resultado.
+ */
+async function payWithMpesa() {
+    mpesaError.value = ''
+    mpesaWaiting.value = true
+    mpesaSeconds.value = 0
+
+    const ticker = setInterval(() => { mpesaSeconds.value++ }, 1000)
+
+    try {
+        const res = await bookingStore.payWithMpesa(sessionToken, mobilePhone.value.trim())
+
+        if (!res?.success) {
+            mpesaError.value = res?.message ?? 'Não foi possível processar o pagamento.'
+            return false
+        }
+
+        return true
+    } catch (err) {
+        mpesaError.value = err.response?.data?.data?.message ?? parseApiError(err)
+        return false
+    } finally {
+        clearInterval(ticker)
+        mpesaWaiting.value = false
+    }
+}
+
 async function confirm() {
     if (!canSubmit() || submitting.value) return
     submitting.value = true
@@ -186,12 +216,15 @@ async function confirm() {
                 showToast('error', cardError.value)
                 return
             }
+        } else if (selectedMethod.value === 'mpesa') {
+            const paid = await payWithMpesa()
+            if (!paid) return
         } else {
             await new Promise((r) => setTimeout(r, 800))
         }
 
-        bookingStore.clearFlow()
-        router.push({
+        bookingStore.completeFlow(sessionToken)
+        router.replace({
             path: '/booking/success',
             query: {
                 session_token: sessionToken,
@@ -289,7 +322,8 @@ async function confirm() {
 
                     <!-- M-PESA / E-MOLA -->
                     <div v-for="m in otherMethods" :key="m.key" class="methodCard"
-                        :class="{ selected: selectedMethod === m.key }" @click="selectedMethod = m.key">
+                        :class="{ selected: selectedMethod === m.key, unavailable: m.disabled }"
+                        @click="m.disabled || (selectedMethod = m.key)">
                         <div class="methodHeader">
                             <div class="methodRadio" :class="{ checked: selectedMethod === m.key }">
                                 <div v-if="selectedMethod === m.key" class="radioInner" />
@@ -302,6 +336,7 @@ async function confirm() {
                                 <span class="methodLabel">{{ m.label }}</span>
                                 <span class="methodSub">{{ m.sub }}</span>
                             </div>
+                            <span v-if="m.disabled" class="soonBadge">Brevemente</span>
                         </div>
 
                         <!-- CAMPOS MPESA -->
@@ -311,18 +346,31 @@ async function confirm() {
                                     <label class="fieldLabel">Número de celular</label>
                                     <div class="inputWrap">
                                         <input v-model="mobilePhone" type="tel" class="input" placeholder="84 000 0000"
-                                            @click.stop />
+                                            :disabled="mpesaWaiting" @click.stop />
                                         <i class="fi fi-rs-mobile inputIconRight" />
                                     </div>
                                     <p class="fieldNote">NB.: Deve ser o número de celular com o qual deseja fazer o
                                         pagamento</p>
+
+                                    <p v-if="mpesaError" class="mpesaError">{{ mpesaError }}</p>
+
+                                    <div v-if="mpesaWaiting" class="mpesaWaiting" @click.stop>
+                                        <div class="mpesaSpinner" />
+                                        <div class="mpesaWaitingText">
+                                            <strong>Confirme o pagamento no seu telemóvel</strong>
+                                            <span>Enviámos um pedido para o {{ mobilePhone }}. Introduza o seu PIN
+                                                M-Pesa.</span>
+                                            <span class="mpesaTimer">À espera há {{ mpesaSeconds }}s — não feche esta
+                                                página.</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </Transition>
 
-                        <!-- CAMPOS EMOLA -->
+                        <!-- CAMPOS EMOLA - inactivo ate haver credenciais da Movitel -->
                         <Transition name="expand">
-                            <div v-if="selectedMethod === 'emola' && m.key === 'emola'" class="methodBody">
+                            <div v-if="false && selectedMethod === 'emola' && m.key === 'emola'" class="methodBody">
                                 <div class="field">
                                     <label class="fieldLabel">Número de celular</label>
                                     <div class="inputWrap">
@@ -673,6 +721,88 @@ async function confirm() {
     font-size: 11px;
     color: #aaa;
     line-height: 1.5;
+}
+
+/* M-PESA: erro e ecra de espera do PIN */
+.mpesaError {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #c62828;
+    background: #fce4ec;
+    border-radius: 8px;
+    padding: 10px 12px;
+    line-height: 1.45;
+}
+
+.mpesaWaiting {
+    margin-top: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: #FFF8E1;
+    border: 1px solid #FFE0A3;
+    border-radius: 10px;
+    padding: 14px;
+}
+
+.mpesaSpinner {
+    width: 22px;
+    height: 22px;
+    border: 3px solid #FFE0A3;
+    border-top-color: #C77800;
+    border-radius: 50%;
+    animation: mpesaSpin 0.8s linear infinite;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+@keyframes mpesaSpin {
+    to { transform: rotate(1turn); }
+}
+
+.mpesaWaitingText {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.mpesaWaitingText strong {
+    font-size: 14px;
+    color: #221F20;
+}
+
+.mpesaWaitingText span {
+    font-size: 12px;
+    color: #7a5c1e;
+    line-height: 1.45;
+}
+
+.mpesaTimer {
+    font-weight: 600;
+}
+
+/* Metodo ainda indisponivel (E-Mola) */
+.methodCard.unavailable {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.methodCard.unavailable:hover {
+    border-color: #E6E6E6;
+}
+
+.soonBadge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #7a5c1e;
+    background: #FFF3D6;
+    border-radius: 20px;
+    padding: 4px 10px;
+    white-space: nowrap;
 }
 
 /* STRIPE ELEMENT */

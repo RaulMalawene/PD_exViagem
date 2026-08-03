@@ -6,6 +6,11 @@ import paymentService from '../services/paymentService'
 
 const FLOW_STORAGE_KEY = 'booking_flow_state'
 
+// Marca que a reserva ja foi paga. Fica fora do FLOW_STORAGE_KEY de proposito:
+// o clearFlow() apaga o estado do fluxo, mas esta marca tem de sobreviver para
+// a guarda do router poder impedir o regresso as etapas anteriores.
+const COMPLETED_STORAGE_KEY = 'booking_flow_completed'
+
 function emptyFlow() {
   return {
     routeId: null,
@@ -111,23 +116,30 @@ export const usePublicBookingStore = defineStore('publicBooking', {
       return res.data
     },
 
+    async payWithMpesa(sessionToken, phone) {
+      const res = await paymentService.payWithMpesa({ session_token: sessionToken, phone })
+      return res.data
+    },
+
     saveFlow(partial) {
       this.flow = { ...this.flow, ...partial }
       sessionStorage.setItem(FLOW_STORAGE_KEY, JSON.stringify(this.flow))
     },
 
-    // Rota de cada etapa do fluxo de reserva, reconstruida a partir do estado guardado -
-    // usado pelo indicador de progresso para permitir voltar a uma etapa anterior.
     stepRoute(step) {
       const flow = this.flow
+
+      if (this.isFlowCompleted()) return null
 
       if (step === 1) {
         return { path: '/booking/results', query: flow.routeId ? { route_id: flow.routeId } : {} }
       }
       if (step === 2) {
+        if (!flow.tripId) return null
         return { path: '/booking/seats', query: { trip_id: flow.tripId } }
       }
       if (step === 3) {
+        if (!flow.tripId || !flow.sessionToken) return null
         return {
           path: '/booking/passengers',
           query: {
@@ -141,12 +153,29 @@ export const usePublicBookingStore = defineStore('publicBooking', {
       return null
     },
 
+    completeFlow(sessionToken) {
+      this.clearFlow()
+      sessionStorage.setItem(COMPLETED_STORAGE_KEY, sessionToken ?? '1')
+    },
+
+    isFlowCompleted() {
+      return !!sessionStorage.getItem(COMPLETED_STORAGE_KEY)
+    },
+
+    completedSessionToken() {
+      const token = sessionStorage.getItem(COMPLETED_STORAGE_KEY)
+      return token && token !== '1' ? token : null
+    },
+
+
+    startNewFlow() {
+      this.clearFlow()
+      sessionStorage.removeItem(COMPLETED_STORAGE_KEY)
+    },
+
     clearFlow() {
       this.flow = emptyFlow()
       sessionStorage.removeItem(FLOW_STORAGE_KEY)
-      // TripSeats.vue guarda o token de sessao de reserva separadamente (persiste durante
-      // a selecao de assentos/holds) - tem de sair aqui tambem, senao uma reserva nova no
-      // mesmo separador reaproveita o token antigo e mistura bilhetes de reservas diferentes.
       sessionStorage.removeItem('booking_session_token')
     },
   },

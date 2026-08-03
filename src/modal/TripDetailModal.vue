@@ -52,6 +52,7 @@ const ticketTripInfo = computed(() => ({
 const showCancelConfirm = ref(false)
 const isCancelling = ref(false)
 const isDownloadingManifest = ref(false)
+const isDownloadingCargo = ref(false)
 
 const statusOptions = [
   { id: 'scheduled', name: 'Agendada' },
@@ -184,6 +185,25 @@ async function downloadManifest() {
     showToast('error', parseApiError(err))
   } finally {
     isDownloadingManifest.value = false
+  }
+}
+
+async function downloadCargoManifest() {
+  if (isDownloadingCargo.value) return
+  isDownloadingCargo.value = true
+
+  try {
+    const blob = await tripStore.downloadCargoManifest(localTrip.value.id)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `manifesto-carga-viagem-${localTrip.value.id}.pdf`
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    isDownloadingCargo.value = false
   }
 }
 
@@ -372,7 +392,11 @@ onMounted(() => {
               <div class="actions">
                 <button class="actionBtn green" :disabled="isDownloadingManifest" @click="downloadManifest">
                   <i class="fi fi-rs-file-pdf" />
-                  {{ isDownloadingManifest ? 'A gerar...' : 'Gerar manifesto PDF' }}
+                  {{ isDownloadingManifest ? 'A gerar...' : 'Manifesto de passageiros' }}
+                </button>
+                <button class="actionBtn amber" :disabled="isDownloadingCargo" @click="downloadCargoManifest">
+                  <i class="fi fi-rs-box-open" />
+                  {{ isDownloadingCargo ? 'A gerar...' : 'Manifesto de carga' }}
                 </button>
                 <button class="actionBtn magenta" :class="{ active: activeView === 'edit' }" @click="toggleEdit">
                   <i class="fi fi-rs-pencil" />
@@ -835,6 +859,10 @@ onMounted(() => {
 
 .actionBtn.green {
   background: #8B9B1A;
+}
+
+.actionBtn.amber {
+  background: #C77800;
 }
 
 .actionBtn.magenta {

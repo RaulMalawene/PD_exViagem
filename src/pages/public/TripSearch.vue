@@ -51,7 +51,9 @@ onMounted(async () => {
     // Chegar aqui e sempre o inicio de uma reserva nova (nunca um "voltar atras" dentro
     // de um fluxo em curso - isso vai para /booking/results) - limpa o estado da reserva
     // anterior para o token de sessao nao ser reaproveitado entre reservas diferentes.
-    bookingStore.clearFlow()
+    // startNewFlow tambem limpa a marca de "ja pago", para quem volta a
+    // landing page poder fazer uma reserva nova.
+    bookingStore.startNewFlow()
     await bookingStore.fetchRoutes()
     if (!selectedRoute.value && bookingStore.routes.length) {
         selectedRoute.value = String(bookingStore.routes[0].id)

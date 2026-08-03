@@ -4,7 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import { useBookingStore } from '../stores/bookingStore'
 import { useRouteStore } from '../stores/routeStore'
-import { formatDate } from '../utils/formatDate'
+import { formatDate, formatDateTime } from '../utils/formatDate'
 
 import Text from '../components/Text.vue'
 import Profile from '../components/Profile.vue'
@@ -71,7 +71,7 @@ const activeFilterCount = computed(() =>
   [filters.value.date, filters.value.route_id, filters.value.status, filters.value.payment_status].filter(Boolean).length
 )
 
-const headers = ['Bilhete', 'Passageiro', 'Rota', 'Data', 'Assento', 'Estado', 'Pagamento']
+const headers = ['Bilhete', 'Passageiro', 'Rota', 'Data', 'Assento', 'Estado', 'Pagamento', 'Data de pagamento']
 
 const rows = computed(() =>
   bookings.value.map((b) => ({
@@ -83,6 +83,7 @@ const rows = computed(() =>
     seat: b.seat_number ?? '--',
     status: statusLabels[b.status] ?? b.status,
     payment: paymentStatusLabels[b.invoice?.status] ?? b.invoice?.status ?? '--',
+    paid_at: b.invoice?.paid_at ? formatDateTime(b.invoice.paid_at) : '--',
   }))
 )
 

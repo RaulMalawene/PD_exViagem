@@ -24,6 +24,7 @@ function getOrCreateSessionToken() {
 }
 
 const loading = ref(true)
+const loadError = ref(null)
 const tripData = ref(null)
 const layout = ref([])
 const seatStatuses = ref({})
@@ -87,11 +88,20 @@ async function fetchAvailability() {
     selectedSeats.value = mySeats
     seatExpiries.value = myExpiries
     if (mySeats.length) startTimer()
+    loadError.value = null
   } catch (err) {
-    showToast('error', parseApiError(err))
+    // Sem o mapa de assentos a pagina nao serve para nada: em vez de um toast
+    // que desaparece, fica um estado de erro com a opcao de voltar a tentar.
+    loadError.value = parseApiError(err)
   } finally {
     loading.value = false
   }
+}
+
+async function retryAvailability() {
+  loading.value = true
+  loadError.value = null
+  await fetchAvailability()
 }
 
 async function toggleSeat(seat) {
@@ -257,6 +267,20 @@ onUnmounted(() => {
         <!-- LOADING -->
         <div v-if="loading" class="stateBox">
           <div class="spinner" />
+        </div>
+
+        <!-- ERRO -->
+        <div v-else-if="loadError" class="errorBox">
+          <i class="fi fi-rs-triangle-warning errorIcon" />
+          <span class="errorTitle">Não foi possível carregar os lugares</span>
+          <span class="errorText">{{ loadError }}</span>
+          <div class="errorActions">
+            <button type="button" class="retryBtn" @click="retryAvailability">
+              <i class="fi fi-rs-refresh" />
+              Voltar a tentar
+            </button>
+            <RouterLink to="/booking" class="restartBtn">Começar de novo</RouterLink>
+          </div>
         </div>
 
         <template v-else>
@@ -505,6 +529,82 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 80px 0;
+}
+
+.errorBox {
+  background: #fff;
+  border-radius: 14px;
+  padding: 36px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.errorIcon {
+  font-size: 34px;
+  color: #f0ad4e;
+  margin-bottom: 4px;
+}
+
+.errorTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #221F20;
+}
+
+.errorText {
+  font-size: 14px;
+  color: #777;
+  max-width: 340px;
+  line-height: 1.5;
+}
+
+.errorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.retryBtn {
+  height: 42px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 8px;
+  background: #922877;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.15s;
+}
+
+.retryBtn:hover {
+  opacity: 0.88;
+}
+
+.restartBtn {
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 8px;
+  background: #F0F0F0;
+  color: #555;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+
+.restartBtn:hover {
+  background: #E5E5E5;
 }
 
 .spinner {

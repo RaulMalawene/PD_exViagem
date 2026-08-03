@@ -24,6 +24,7 @@ const { routes } = storeToRefs(routeStore)
 const { showToast } = useToast()
 
 const downloadingPdf = ref(false)
+const downloadingExcel = ref(false)
 const filters = ref({ date_from: '', date_to: '', route_id: '' })
 const mobileFiltersOpen = ref(false)
 
@@ -40,7 +41,11 @@ const statusLabels = {
   delayed: 'Com atraso',
 }
 
-const headers = ['Data', 'Rota', 'Viatura', 'Lugares Vendidos', 'Capacidade', 'Ocupação', 'Estado']
+const headers = ['Data', 'Rota', 'Viatura', 'Lugares Vendidos', 'Capacidade', 'Ocupação', 'Receita MZN', 'Receita ZAR', 'Estado']
+
+function fmt(value) {
+  return Number(value ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 const rows = computed(() =>
   (occupancy.value.rows ?? []).map((t) => ({
@@ -51,6 +56,8 @@ const rows = computed(() =>
     seats_sold: t.seats_sold,
     capacity: t.capacity,
     occupancy: `${t.occupancy_rate}%`,
+    revenue_mzn: fmt(t.revenue_mzn),
+    revenue_zar: fmt(t.revenue_zar),
     status: statusLabels[t.status] ?? t.status,
   }))
 )
@@ -108,6 +115,26 @@ async function downloadPdf() {
   }
 }
 
+async function downloadExcel() {
+  downloadingExcel.value = true
+  try {
+    const params = { ...buildParams(1) }
+    delete params.page
+    delete params.per_page
+    const blob = await reportStore.downloadOccupancyExcel(params)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'relatorio-ocupacao.xlsx'
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    downloadingExcel.value = false
+  }
+}
+
 onMounted(() => {
   fetchData()
   routeStore.fetchRoutes({ per_page: 100 })
@@ -148,6 +175,10 @@ onMounted(() => {
             <IconText icon="fi fi-rs-file-pdf" :txt="downloadingPdf ? 'A gerar...' : 'Exportar PDF'"
               color="#8B9B1A" background="#922877" />
           </div>
+          <div @click="downloadExcel">
+            <IconText icon="fi fi-rs-file-excel" :txt="downloadingExcel ? 'A gerar...' : 'Exportar Excel'"
+              color="#fff" background="#1D6F42" />
+          </div>
         </div>
       </div>
 
@@ -157,6 +188,10 @@ onMounted(() => {
         <StatiscSimple title="Capacidade total" :data="occupancy.summary?.total_capacity" />
         <StatiscSimple title="Taxa de ocupação"
           :data="occupancy.summary ? `${occupancy.summary.occupancy_rate}%` : null" />
+        <StatiscSimple title="Receita MZN"
+          :data="occupancy.summary ? fmt(occupancy.summary.total_revenue_mzn) : null" />
+        <StatiscSimple title="Receita ZAR"
+          :data="occupancy.summary ? fmt(occupancy.summary.total_revenue_zar) : null" />
       </div>
 
       <div class="table">

@@ -42,7 +42,7 @@ const outboundRouteName = computed(() => props.roundTrip.outbound_trip?.route?.n
 const returnRouteName = computed(() => props.roundTrip.return_trip?.route?.name ?? 'Volta')
 
 const paymentMethodLabels = {
-  cash: 'Dinheiro',
+  cash: 'Numerário',
   transfer_mz: 'Transferência (MZ)',
   transfer_za: 'Transferência (ZA)',
   card: 'Cartão',

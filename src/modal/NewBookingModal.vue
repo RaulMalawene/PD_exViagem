@@ -52,7 +52,7 @@ const pendingSeats = ref([])
 const passengers = ref({})
 
 const paymentMethodOptions = [
-  { value: 'cash', label: 'Dinheiro' },
+  { value: 'cash', label: 'Numerário' },
   { value: 'transfer_mz', label: 'Transferência (MZ)' },
   { value: 'transfer_za', label: 'Transferência (ZA)' },
 ]
@@ -292,7 +292,8 @@ async function handleClose() {
 }
 
 onMounted(() => {
-  tripStore.fetchTrips({ per_page: 100 })
+  // Sem o date_from vinham tambem viagens ja realizadas, que nao se podem vender.
+  tripStore.fetchTrips({ per_page: 100, date_from: new Date().toISOString().slice(0, 10) })
   routeStore.fetchRoutes({ per_page: 100 })
   document.addEventListener('click', handleOutsideClick)
 })
