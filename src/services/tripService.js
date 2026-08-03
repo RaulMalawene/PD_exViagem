@@ -8,4 +8,5 @@ export default {
   remove: (id) => api.delete(`/trips/${id}`).then((r) => r.data),
   generate: (data) => api.post('/trips/generate', data).then((r) => r.data),
   manifestPdf: (id) => api.get(`/trips/${id}/manifest-pdf`, { responseType: 'blob' }).then((r) => r.data),
+  cargoManifestPdf: (id) => api.get(`/trips/${id}/cargo-manifest-pdf`, { responseType: 'blob' }).then((r) => r.data),
 }
