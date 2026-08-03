@@ -45,5 +45,9 @@ export const useTripStore = defineStore('trip', {
     async downloadManifest(id) {
       return tripService.manifestPdf(id)
     },
+
+    async downloadCargoManifest(id) {
+      return tripService.cargoManifestPdf(id)
+    },
   },
 })
