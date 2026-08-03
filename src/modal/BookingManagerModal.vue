@@ -25,7 +25,7 @@ const changed = ref(false)
 const activeView = ref('info')
 
 const paymentMethodOptions = [
-  { value: 'cash', label: 'Dinheiro' },
+  { value: 'cash', label: 'Numerário' },
   { value: 'transfer_mz', label: 'Transferência (MZ)' },
   { value: 'transfer_za', label: 'Transferência (ZA)' },
 ]

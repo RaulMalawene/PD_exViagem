@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useBookingStore } from '../stores/bookingStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
-import { formatDate } from '../utils/formatDate'
+import { formatDate, formatDateTime } from '../utils/formatDate'
 import { formatPhone } from '../utils/formatPhone'
 import Badge from '../components/Badge.vue'
 import PaymentManagerModal from './PaymentManagerModal.vue'
@@ -192,6 +192,11 @@ onMounted(() => {
               <div v-for="(group, currency) in packageGroups" :key="currency" class="summaryRow">
                 <span class="summaryLabel">Bagagens ({{ group.count }})</span>
                 <span class="summaryAmount">{{ group.total.toFixed(2) }} {{ currency }}</span>
+              </div>
+
+              <div v-if="localBooking.invoice?.paid_at" class="summaryRow">
+                <span class="summaryLabel">Pago em</span>
+                <span class="summaryAmount">{{ formatDateTime(localBooking.invoice.paid_at) }}</span>
               </div>
 
               <button class="manageBtn" @click="openPaymentManager">

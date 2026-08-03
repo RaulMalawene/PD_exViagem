@@ -4,6 +4,7 @@ import { useBookingStore } from '../stores/bookingStore'
 import { useInvoiceStore } from '../stores/invoiceStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
+import { formatDateTime } from '../utils/formatDate'
 import Badge from '../components/Badge.vue'
 
 const props = defineProps({
@@ -21,7 +22,7 @@ const invoice = ref(props.booking.invoice ? { ...props.booking.invoice } : null)
 const changed = ref(false)
 
 const paymentMethodOptions = [
-  { value: 'cash', label: 'Dinheiro' },
+  { value: 'cash', label: 'Numerário' },
   { value: 'transfer_mz', label: 'Transferência (MZ)' },
   { value: 'transfer_za', label: 'Transferência (ZA)' },
   { value: 'card', label: 'Cartão' },
@@ -268,6 +269,10 @@ onMounted(() => {
                   <span class="amountLabel">Total</span>
                   <span class="amountValue">{{ invoice.total_amount }} {{ invoice.currency }}</span>
                 </div>
+                <div v-if="invoice.paid_at" class="amountItem">
+                  <span class="amountLabel">Pago em</span>
+                  <span class="amountValue">{{ formatDateTime(invoice.paid_at) }}</span>
+                </div>
               </div>
 
               <template v-if="invoice?.status === 'pending'">
@@ -355,6 +360,7 @@ onMounted(() => {
                       <span class="packageMeta">
                         {{ pkg.quantity }} {{ pkg.quantity === 1 ? 'volume' : 'volumes' }}
                         <template v-if="pkg.tag_code"> · {{ pkg.tag_code }}</template>
+                        <template v-if="pkg.paid_at"> · Pago em {{ formatDateTime(pkg.paid_at) }}</template>
                       </span>
                       <span class="packageAmount">{{ pkg.total_amount }} {{ pkg.currency }}</span>
                     </div>

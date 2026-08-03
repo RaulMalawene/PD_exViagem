@@ -55,7 +55,7 @@ const statusOptions = [
 ]
 
 const paymentMethodOptions = [
-  { value: 'cash', label: 'Dinheiro' },
+  { value: 'cash', label: 'Numerário' },
   { value: 'pos', label: 'POS' },
   { value: 'deposit', label: 'Depósito' },
   { value: 'transfer_mz', label: 'Transferência (MZ)' },
