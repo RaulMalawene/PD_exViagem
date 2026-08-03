@@ -116,19 +116,19 @@ export const usePublicBookingStore = defineStore('publicBooking', {
       return res.data
     },
 
+    async payWithMpesa(sessionToken, phone) {
+      const res = await paymentService.payWithMpesa({ session_token: sessionToken, phone })
+      return res.data
+    },
+
     saveFlow(partial) {
       this.flow = { ...this.flow, ...partial }
       sessionStorage.setItem(FLOW_STORAGE_KEY, JSON.stringify(this.flow))
     },
 
-    // Rota de cada etapa do fluxo de reserva, reconstruida a partir do estado guardado -
-    // usado pelo indicador de progresso para permitir voltar a uma etapa anterior.
     stepRoute(step) {
       const flow = this.flow
 
-      // Depois de pago nao se volta atras, e sem estado nao ha para onde voltar:
-      // devolver null faz o indicador de progresso deixar de oferecer o link,
-      // em vez de gerar um trip_id=null que rebentava na API.
       if (this.isFlowCompleted()) return null
 
       if (step === 1) {
@@ -153,8 +153,6 @@ export const usePublicBookingStore = defineStore('publicBooking', {
       return null
     },
 
-    // Chamado quando o pagamento fica concluido. Limpa o fluxo mas deixa a marca
-    // que impede voltar as etapas anteriores.
     completeFlow(sessionToken) {
       this.clearFlow()
       sessionStorage.setItem(COMPLETED_STORAGE_KEY, sessionToken ?? '1')
@@ -169,7 +167,7 @@ export const usePublicBookingStore = defineStore('publicBooking', {
       return token && token !== '1' ? token : null
     },
 
-    // Uma reserva nova comeca de estaleiro limpo: usado pela landing page.
+
     startNewFlow() {
       this.clearFlow()
       sessionStorage.removeItem(COMPLETED_STORAGE_KEY)
@@ -178,9 +176,6 @@ export const usePublicBookingStore = defineStore('publicBooking', {
     clearFlow() {
       this.flow = emptyFlow()
       sessionStorage.removeItem(FLOW_STORAGE_KEY)
-      // TripSeats.vue guarda o token de sessao de reserva separadamente (persiste durante
-      // a selecao de assentos/holds) - tem de sair aqui tambem, senao uma reserva nova no
-      // mesmo separador reaproveita o token antigo e mistura bilhetes de reservas diferentes.
       sessionStorage.removeItem('booking_session_token')
     },
   },
