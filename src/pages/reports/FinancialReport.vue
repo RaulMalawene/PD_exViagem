@@ -23,6 +23,8 @@ const { showToast } = useToast()
 
 const downloadingPdf = ref(false)
 const downloadingExcel = ref(false)
+// Fechado por omissao: as estatisticas empurravam a tabela para fora do ecra.
+const breakdownsOpen = ref(false)
 const filters = ref({ date_from: '', date_to: '', category: '', search: '' })
 const mobileFiltersOpen = ref(false)
 const hasFilters = computed(() =>
@@ -39,7 +41,7 @@ const categoryOptions = [
 ]
 
 const paymentMethodLabels = {
-  cash: 'Dinheiro',
+  cash: 'Numerário',
   transfer_mz: 'Transferência (MZ)',
   transfer_za: 'Transferência (ZA)',
   card: 'Cartão',
@@ -62,7 +64,7 @@ const routeRows = computed(() => {
   return Object.values(financial.value.byRoute).filter((r) => r.count > 0)
 })
 
-const headers = ['Data', 'Referência', 'Cliente', 'Rota', 'Tipo', 'Desconto', 'Valor Pago', 'Método', 'Processado por']
+const headers = ['Data de pagamento', 'Referência', 'Cliente', 'Rota', 'Tipo', 'Desconto', 'Valor Pago', 'Método', 'Processado por']
 
 const rows = computed(() =>
   (financial.value.rows ?? []).map((r) => ({
@@ -190,8 +192,8 @@ onMounted(() => fetchData())
       <div class="filtersRow" :class="{ mobileOpen: mobileFiltersOpen }">
         <div class="filters">
           <div class="dates">
-            <DateFilter txt="De" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_from" />
-            <DateFilter txt="Até" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_to" />
+            <DateFilter txt="Pago de" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_from" />
+            <DateFilter txt="Pago até" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_to" />
           </div>
 
           <div class="dropdowns">
@@ -208,7 +210,17 @@ onMounted(() => fetchData())
         <StatiscSimple title="Total ZAR" :data="financial.total ? fmt(financial.total.zar) : null" />
       </div>
 
-      <div class="breakdowns" v-if="!loading && (categoryGroups.length || paymentGroups.length || routeRows.length)">
+      <button
+        v-if="!loading && (categoryGroups.length || paymentGroups.length || routeRows.length)"
+        class="breakdownsToggle"
+        @click="breakdownsOpen = !breakdownsOpen"
+      >
+        <i class="fi fi-rs-chart-histogram" />
+        <span>Estatísticas detalhadas</span>
+        <i class="fi fi-rs-angle-small-down toggleChevron" :class="{ rotated: breakdownsOpen }" />
+      </button>
+
+      <div class="breakdowns" v-if="breakdownsOpen && !loading && (categoryGroups.length || paymentGroups.length || routeRows.length)">
         <div class="breakdownCard" v-if="categoryGroups.length">
           <span class="breakdownTitle">Por Tipo</span>
           <table class="reportTable">
@@ -378,6 +390,44 @@ header {
   display: none;
 }
 
+.breakdownsToggle {
+  margin-top: 20px;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #221F20;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.breakdownsToggle:hover {
+  background: #FAFAFA;
+  border-color: #922877;
+}
+
+.breakdownsToggle > i:first-child {
+  color: #922877;
+}
+
+.breakdownsToggle .toggleChevron {
+  font-size: 11px;
+  color: #999;
+  transition: transform 0.2s;
+}
+
+.breakdownsToggle .toggleChevron.rotated {
+  transform: rotate(180deg);
+}
+
 .filtersRow {
   margin-top: 16px;
   display: flex;
@@ -434,7 +484,7 @@ header {
 }
 
 .breakdowns {
-  margin-top: 24px;
+  margin-top: 12px;
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
