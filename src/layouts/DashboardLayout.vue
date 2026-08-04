@@ -2,6 +2,7 @@
 import { ref, computed, watch, watchEffect } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { ROLE_ADMIN, ROLE_MANAGER } from '../utils/roles'
 import Logo from '../assets/logoPD.svg'
 import IconTextButton from '../components/IconTextButton.vue'
 import IconText from '../components/IconText.vue'
@@ -12,9 +13,8 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const role = computed(() => authStore.user?.role)
-const isAdmin = computed(() => role.value === 'admin')
-const isStaff = computed(() => role.value === 'staff')
-const isDriver = computed(() => role.value === 'driver')
+const isAdmin = computed(() => role.value === ROLE_ADMIN)
+const isManager = computed(() => role.value === ROLE_MANAGER)
 
 const adminMenu = [
   { txt: 'Dashboard', icon: 'fi fi-rs-home', route: '/dashboard/home' },
@@ -44,7 +44,7 @@ const adminMenu = [
   },
 ]
 
-const staffMenu = [
+const managerMenu = [
   { txt: 'Dashboard', icon: 'fi fi-rs-home', route: '/dashboard/home' },
   { txt: 'Reservas', icon: 'fi fi-rs-ticket', route: '/dashboard/bookings' },
   { txt: 'Mercadorias', icon: 'fi fi-rs-box-open', route: '/dashboard/shipments' },
@@ -60,14 +60,16 @@ const staffMenu = [
   },
 ]
 
-const driverMenu = [
-  { txt: 'Dashboard', icon: 'fi fi-rs-home', route: '/dashboard/home' },
+// O agente de campo vende bilhetes, cobra e regista bagagens — tudo dentro
+// das Reservas. Nao ve mais nada.
+const fieldAgentMenu = [
+  { txt: 'Reservas', icon: 'fi fi-rs-ticket', route: '/dashboard/bookings' },
 ]
 
 const menuItems = computed(() => {
   if (isAdmin.value) return adminMenu
-  if (isStaff.value) return staffMenu
-  return driverMenu
+  if (isManager.value) return managerMenu
+  return fieldAgentMenu
 })
 
 const mobileOpen = ref(false)
