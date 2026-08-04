@@ -13,7 +13,7 @@ const root = ref(null)
 
 defineExpose({ root })
 
-// Siglas das cidades. Espelham o CITY_CODES do TicketPdfService — manter os
+// Siglas das cidades. Espelham o CITY_CODES do TicketPdfService - manter os
 // dois em sincronia enquanto forem fixos no codigo.
 const cityCodes = {
     Maputo: 'MPM',

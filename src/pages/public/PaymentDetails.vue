@@ -173,7 +173,7 @@ watch(selectedMethod, (method) => {
 
 /**
  * O C2B do M-Pesa e sincrono: este pedido fica pendurado enquanto o cliente
- * digita o PIN. Nao ha webhook — a resposta e o resultado.
+ * digita o PIN. Nao ha webhook - a resposta e o resultado.
  */
 async function payWithMpesa() {
     mpesaError.value = ''
@@ -360,7 +360,7 @@ async function confirm() {
                                             <strong>Confirme o pagamento no seu telemóvel</strong>
                                             <span>Enviámos um pedido para o {{ mobilePhone }}. Introduza o seu PIN
                                                 M-Pesa.</span>
-                                            <span class="mpesaTimer">À espera há {{ mpesaSeconds }}s — não feche esta
+                                            <span class="mpesaTimer">À espera há {{ mpesaSeconds }}s - não feche esta
                                                 página.</span>
                                         </div>
                                     </div>

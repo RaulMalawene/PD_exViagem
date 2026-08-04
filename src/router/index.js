@@ -68,7 +68,7 @@ const routes = [
     component: PublicLayout,
     children: [
       {
-        // Landing page — pesquisa de viagens
+        // Landing page - pesquisa de viagens
         path: '',
         name: 'booking.search',
         component: TripSearch,
@@ -182,7 +182,7 @@ const routes = [
         component: FinancialReport,
       },
       // Relatorio de cancelamentos removido do menu a pedido (changelog 091).
-      // O codigo fica todo no sitio — pagina, endpoint e PDF — para se poder
+      // O codigo fica todo no sitio - pagina, endpoint e PDF - para se poder
       // repor descomentando este bloco e o import respectivo.
       // {
       //   path: 'reports/cancellations',
@@ -204,7 +204,7 @@ const router = createRouter({
 
 // Etapas do fluxo de reserva e o que cada uma precisa para funcionar. Uma query
 // em falta significa que se chegou ali por um link velho ou pelo botao "voltar"
-// depois de o estado ter sido limpo — nesse caso volta-se ao inicio em vez de
+// depois de o estado ter sido limpo - nesse caso volta-se ao inicio em vez de
 // chamar a API com valores vazios.
 // Confirmado contra a navegacao real de cada pagina: os assentos e o pagamento
 // so recebem trip_id (o pagamento vai buscar o session_token ao estado do

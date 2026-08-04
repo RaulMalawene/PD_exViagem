@@ -26,12 +26,13 @@ const deleteTarget = ref(null)
 const deletingVehicle = ref(false)
 const deactivatingVehicle = ref(false)
 
-const headers = ['Matrícula', 'Modelo', 'Marca', 'Capacidade', 'Layout', 'Estado']
+const headers = ['Matrícula', 'Trela', 'Modelo', 'Marca', 'Capacidade', 'Layout', 'Estado']
 
 const rows = computed(() =>
   vehicles.value.map((v) => ({
     id: v.id,
     plate: v.plate,
+    trailer_plate: v.trailer_plate || '--',
     model: v.model,
     brand: v.brand,
     capacity: v.capacity,
@@ -129,7 +130,7 @@ onMounted(() => fetchData())
     <div class="filterData">
       <div class="searchData">
         <Search
-          txt="Pesquise por matrícula, modelo ou marca"
+          txt="Pesquise por matrícula, trela, modelo ou marca"
           :modelValue="search"
           @update:modelValue="search = $event"
         />
