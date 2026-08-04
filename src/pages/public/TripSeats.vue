@@ -58,12 +58,21 @@ function getSeatState(seat) {
   if (!seat) return 'aisle'
   if (selectedSeats.value.includes(seat)) return 'selected'
   const status = seatStatuses.value[seat] ?? 'available'
+
+  if (status === 'held_by_me') return 'selected'
   return status === 'held' ? 'booked' : status
 }
 
+
+let availabilityRequestId = 0
+
 async function fetchAvailability() {
+  const requestId = ++availabilityRequestId
+
   try {
     const data = await bookingStore.fetchAvailability(tripId, sessionToken.value)
+
+    if (requestId !== availabilityRequestId) return
 
     tripData.value = data
     layout.value = data.layout ?? []
@@ -90,11 +99,12 @@ async function fetchAvailability() {
     if (mySeats.length) startTimer()
     loadError.value = null
   } catch (err) {
-    // Sem o mapa de assentos a pagina nao serve para nada: em vez de um toast
-    // que desaparece, fica um estado de erro com a opcao de voltar a tentar.
+    if (requestId !== availabilityRequestId) return
+
+
     loadError.value = parseApiError(err)
   } finally {
-    loading.value = false
+    if (requestId === availabilityRequestId) loading.value = false
   }
 }
 
@@ -109,7 +119,7 @@ async function toggleSeat(seat) {
 
   const state = getSeatState(seat)
 
-  if (state === 'booked') return
+  if (state !== 'available' && state !== 'selected') return
 
   pendingSeats.value = [...pendingSeats.value, seat]
 
@@ -118,9 +128,7 @@ async function toggleSeat(seat) {
     return
   }
 
-  if (state === 'available') {
-    await holdSeat(seat)
-  }
+  await holdSeat(seat)
 }
 
 async function holdSeat(seat) {
@@ -214,6 +222,8 @@ function proceed() {
 
 onMounted(() => {
   const flow = bookingStore.flow
+
+  // Ja ha reservas criadas para ESTA viagem: nao se cria outra vez.
   if (flow.bookingGroup && String(flow.tripId) === String(tripId)) {
     router.replace({
       path: '/booking/payment',
@@ -222,8 +232,18 @@ onMounted(() => {
     return
   }
 
+
+  if (flow.bookingGroup) {
+    bookingStore.saveFlow({ bookingGroup: null, passengers: null })
+  }
+
   fetchAvailability()
-  pollInterval = setInterval(fetchAvailability, 15000)
+
+  pollInterval = setInterval(() => {
+    // Nao sondar a meio de um hold: a resposta traria o mapa de antes.
+    if (pendingSeats.value.length) return
+    fetchAvailability()
+  }, 15000)
 })
 
 onUnmounted(() => {
