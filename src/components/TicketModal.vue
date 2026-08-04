@@ -44,7 +44,7 @@ const emit = defineEmits(['close'])
     overflow-y: auto;
 }
 
-/* O bilhete precisa dos seus 620px para nao truncar nada — apertar aqui
+/* O bilhete precisa dos seus 620px para nao truncar nada - apertar aqui
    espremia as celulas e cortava os valores com reticencias. */
 .cardWrap {
     width: 100%;

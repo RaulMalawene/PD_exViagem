@@ -137,7 +137,7 @@ function handleClose() {
 
           <div class="modalBody">
             <p class="helpText">
-              O número da reserva pode não ter WhatsApp — confirme ou corrija o número antes de enviar.
+              O número da reserva pode não ter WhatsApp - confirme ou corrija o número antes de enviar.
               Se o passageiro tiver mais do que uma reserva confirmada, todos os bilhetes são enviados.
             </p>
 

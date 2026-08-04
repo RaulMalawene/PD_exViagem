@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore, roleHomeRoute } from '../stores/authStore'
 import { usePublicBookingStore } from '../stores/publicBookingStore'
+import { ROLE_ADMIN, ROLE_MANAGER } from '../utils/roles'
+
+const ADMIN_ONLY = [ROLE_ADMIN]
+const MANAGEMENT = [ROLE_ADMIN, ROLE_MANAGER]
 
 // Layouts
 const DashboardLayout = () => import('../layouts/DashboardLayout.vue')
@@ -68,7 +72,7 @@ const routes = [
     component: PublicLayout,
     children: [
       {
-        // Landing page — pesquisa de viagens
+        // Landing page - pesquisa de viagens
         path: '',
         name: 'booking.search',
         component: TripSearch,
@@ -106,7 +110,9 @@ const routes = [
     ],
   },
 
-  // Painel de gestao (admin e staff)
+  // Painel de gestao. O `meta.roles` de cada ecra e a segunda linha de defesa:
+  // as policies do backend continuam a ser a que conta, isto so evita que
+  // alguem chegue por URL a uma pagina que depois so mostrava erros.
   {
     path: '/dashboard',
     component: DashboardLayout,
@@ -120,21 +126,25 @@ const routes = [
         // Dashboard principal
         path: 'home',
         component: Home,
+        meta: { roles: MANAGEMENT },
       },
       {
         // Gestao de motoristas
         path: 'drivers',
         component: Drivers,
+        meta: { roles: ADMIN_ONLY },
       },
       {
         // Gestao de ajudantes
         path: 'helpers',
         component: Helpers,
+        meta: { roles: ADMIN_ONLY },
       },
       {
         // Gestao de veiculos
         path: 'vehicles',
         component: Vehicles,
+        meta: { roles: ADMIN_ONLY },
       },
       {
         // Viagens foi absorvida pela Dashboard (Home)
@@ -142,7 +152,7 @@ const routes = [
         redirect: '/dashboard/home',
       },
       {
-        // Gestao de reservas
+        // Gestao de reservas — o unico ecra do agente de campo
         path: 'bookings',
         component: Bookings,
       },
@@ -150,39 +160,46 @@ const routes = [
         // Gestao de mercadorias (Correio / Drop off / Carga)
         path: 'shipments',
         component: Shipments,
+        meta: { roles: MANAGEMENT },
       },
       {
         // Viagens completas (ida + volta) e relatorio financeiro
         path: 'round-trips',
         component: RoundTrips,
+        meta: { roles: MANAGEMENT },
       },
       {
         // Gestao de horarios
         path: 'schedules',
         component: TripSchedules,
+        meta: { roles: ADMIN_ONLY },
       },
       {
         // Gestao de rotas
         path: 'routes',
         component: Routes,
+        meta: { roles: ADMIN_ONLY },
       },
       {
         // Gestao de utilizadores
         path: 'users',
         component: Users,
+        meta: { roles: ADMIN_ONLY },
       },
       {
         // Relatorio de ocupacao por viagem
         path: 'reports/occupancy',
         component: OccupancyReport,
+        meta: { roles: MANAGEMENT },
       },
       {
         // Relatorio financeiro
         path: 'reports/financial',
         component: FinancialReport,
+        meta: { roles: MANAGEMENT },
       },
       // Relatorio de cancelamentos removido do menu a pedido (changelog 091).
-      // O codigo fica todo no sitio — pagina, endpoint e PDF — para se poder
+      // O codigo fica todo no sitio - pagina, endpoint e PDF - para se poder
       // repor descomentando este bloco e o import respectivo.
       // {
       //   path: 'reports/cancellations',
@@ -192,6 +209,7 @@ const routes = [
         // Relatorio de descontos aplicados
         path: 'reports/discounts',
         component: DiscountsReport,
+        meta: { roles: MANAGEMENT },
       },
     ],
   },
@@ -204,7 +222,7 @@ const router = createRouter({
 
 // Etapas do fluxo de reserva e o que cada uma precisa para funcionar. Uma query
 // em falta significa que se chegou ali por um link velho ou pelo botao "voltar"
-// depois de o estado ter sido limpo — nesse caso volta-se ao inicio em vez de
+// depois de o estado ter sido limpo - nesse caso volta-se ao inicio em vez de
 // chamar a API com valores vazios.
 // Confirmado contra a navegacao real de cada pagina: os assentos e o pagamento
 // so recebem trip_id (o pagamento vai buscar o session_token ao estado do
@@ -229,6 +247,14 @@ router.beforeEach((to, from, next) => {
 
   if (to.path === '/login' && authStore.token) {
     return next(roleHomeRoute(authStore.user?.role))
+  }
+
+  // Ecra restrito a perfis que este utilizador nao tem: manda-o para a sua
+  // pagina inicial em vez de mostrar uma pagina cheia de erros de permissao.
+  const allowedRoles = to.meta?.roles
+
+  if (allowedRoles && !allowedRoles.includes(authStore.user?.role)) {
+    return next({ path: roleHomeRoute(authStore.user?.role), replace: true })
   }
 
   const required = bookingSteps[to.name]

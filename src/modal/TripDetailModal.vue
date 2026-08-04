@@ -362,6 +362,7 @@ onMounted(() => {
                 </div>
                 <span class="infoValue">
                   {{ localTrip.vehicle ? `${localTrip.vehicle.brand} ${localTrip.vehicle.model} · ${localTrip.vehicle.plate}` : '--' }}
+                  <template v-if="localTrip.vehicle?.trailer_plate"> · Trela {{ localTrip.vehicle.trailer_plate }}</template>
                 </span>
               </div>
 

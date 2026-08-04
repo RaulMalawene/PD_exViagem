@@ -6,4 +6,5 @@ export default {
   create: (data) => api.post('/users', data).then((r) => r.data),
   update: (id, data) => api.put(`/users/${id}`, data).then((r) => r.data),
   remove: (id) => api.delete(`/users/${id}`).then((r) => r.data),
+  resendCredentials: (id) => api.post(`/users/${id}/resend-credentials`).then((r) => r.data),
 }

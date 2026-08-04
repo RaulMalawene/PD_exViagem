@@ -5,6 +5,7 @@ import { useUserStore } from '../stores/userStore'
 import { useAuthStore } from '../stores/authStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
+import { roleLabel, roleFilterOptions } from '../utils/roles'
 
 import Text from '../components/Text.vue'
 import Profile from '../components/Profile.vue'
@@ -29,13 +30,6 @@ const showFormModal = ref(false)
 const deleteTarget = ref(null)
 const deactivatingUser = ref(false)
 
-const roleLabels = { admin: 'Administrador', staff: 'Funcionário', driver: 'Motorista' }
-const roleOptions = [
-  { label: 'Administrador', value: 'admin' },
-  { label: 'Funcionário', value: 'staff' },
-  { label: 'Motorista', value: 'driver' },
-]
-
 const filters = ref({ role: '' })
 
 const hasFilters = computed(() => !!(filters.value.role || search.value))
@@ -47,7 +41,7 @@ const rows = computed(() =>
     id: u.id,
     name: u.name,
     email: u.email,
-    role: roleLabels[u.role] ?? u.role,
+    role: roleLabel(u.role),
     is_active: u.is_active ? 'Activo' : 'Inactivo',
     _isSelf: u.id === authStore.user?.id,
   }))
@@ -151,7 +145,7 @@ onMounted(() => fetchData())
       </div>
 
       <div class="filtersRow">
-        <FilterDropDown txt="Perfil" icon="fi fi-rs-user" color="#922877" :options="roleOptions"
+        <FilterDropDown txt="Perfil" icon="fi fi-rs-user" color="#922877" :options="roleFilterOptions"
           :modelValue="filters.role" @update:modelValue="filters.role = $event" />
         <CleanFilter v-if="hasFilters" @click="clearFilters" />
       </div>

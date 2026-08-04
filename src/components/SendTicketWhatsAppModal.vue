@@ -71,7 +71,7 @@ function handleClose() {
 
             <h2 class="sheetTitle">Enviar por WhatsApp</h2>
             <p class="sheetSub">
-              O número usado na reserva pode não ter WhatsApp — confirme ou indique outro número para receber
+              O número usado na reserva pode não ter WhatsApp - confirme ou indique outro número para receber
               {{ plural ? 'os seus bilhetes' : 'o seu bilhete' }}.
             </p>
 

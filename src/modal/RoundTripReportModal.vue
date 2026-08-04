@@ -125,7 +125,7 @@ onMounted(loadReport)
       <Transition name="modal" appear>
         <div class="modalCard">
           <div class="modalHeader">
-            <span class="modalTitle">Relatório — {{ roundTrip.process_number }}</span>
+            <span class="modalTitle">Relatório - {{ roundTrip.process_number }}</span>
             <button class="closeBtn" @click="handleClose">
               <i class="fi fi-br-cross" />
             </button>

@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { ROLE_ADMIN } from '../utils/roles'
 
 import LogoPD from '../assets/LogoPD.svg'
 import IconTextButton from './IconTextButton.vue'
@@ -14,8 +15,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const role = computed(() => authStore.user?.role)
-const isAdmin = computed(() => role.value === 'admin')
-const isStaff = computed(() => role.value === 'staff')
+const isAdmin = computed(() => role.value === ROLE_ADMIN)
 
 const active = ref({
   main: null,
