@@ -1,14 +1,12 @@
 import { defineStore } from 'pinia'
 import authService from '../services/authService'
+import { ROLE_FIELD_AGENT } from '../utils/roles'
 
 export const roleHomeRoute = (role) => {
-  switch (role) {
-    case 'admin':
-    case 'staff':
-    case 'driver':
-    default:
-      return '/dashboard/home'
-  }
+  // O agente de campo nao tem dashboard: entra directamente nas reservas.
+  if (role === ROLE_FIELD_AGENT) return '/dashboard/bookings'
+
+  return '/dashboard/home'
 }
 
 export const useAuthStore = defineStore('auth', {

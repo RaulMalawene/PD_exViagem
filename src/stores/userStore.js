@@ -37,5 +37,9 @@ export const useUserStore = defineStore('user', {
     async deleteUser(id) {
       return userService.remove(id)
     },
+
+    async resendCredentials(id) {
+      return userService.resendCredentials(id)
+    },
   },
 })
