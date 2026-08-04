@@ -22,6 +22,7 @@ const localVehicle = ref(props.vehicle)
 
 const form = ref({
   plate: props.vehicle?.plate ?? '',
+  trailer_plate: props.vehicle?.trailer_plate ?? '',
   model: props.vehicle?.model ?? '',
   brand: props.vehicle?.brand ?? '',
   capacity: props.vehicle?.capacity ?? '',
@@ -92,6 +93,7 @@ async function handleSave() {
   try {
     const payload = {
       plate: form.value.plate,
+      trailer_plate: form.value.trailer_plate.trim() || null,
       model: form.value.model,
       brand: form.value.brand,
       capacity: Number(form.value.capacity),
@@ -139,6 +141,11 @@ function handleClose() {
                 <div class="fieldGroup">
                   <BaseInput label="Matrícula" :modelValue="form.plate" @update:modelValue="form.plate = $event" />
                   <span v-if="formErrors.plate" class="fieldError">{{ formErrors.plate }}</span>
+                </div>
+
+                <div class="fieldGroup">
+                  <BaseInput label="Matrícula da trela" :modelValue="form.trailer_plate" @update:modelValue="form.trailer_plate = $event" />
+                 
                 </div>
 
                 <div class="fieldGroup">
