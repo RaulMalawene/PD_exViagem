@@ -1,6 +1,5 @@
 <script setup>
 import { ref, nextTick } from 'vue'
-import { toPng } from 'html-to-image'
 import { useBookingStore } from '../stores/bookingStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
@@ -51,6 +50,7 @@ function toFlatBooking(b) {
 }
 
 async function captureTicketImage(el) {
+  const { toPng } = await import('html-to-image')
   const dataUrl = await toPng(el, { pixelRatio: 2, backgroundColor: '#ffffff' })
   const blob = await (await fetch(dataUrl)).blob()
   return blob

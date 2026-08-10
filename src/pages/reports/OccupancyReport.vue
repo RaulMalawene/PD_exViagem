@@ -20,7 +20,7 @@ import CleanFilter from '../../components/CleanFilter.vue'
 const reportStore = useReportStore()
 const routeStore = useRouteStore()
 const { occupancy, loading } = storeToRefs(reportStore)
-const { routes } = storeToRefs(routeStore)
+const { options: routes } = storeToRefs(routeStore)
 const { showToast } = useToast()
 
 const downloadingPdf = ref(false)
@@ -137,7 +137,9 @@ async function downloadExcel() {
 
 onMounted(() => {
   fetchData()
-  routeStore.fetchRoutes({ per_page: 100 })
+  // fetchOptions e nao fetchRoutes: o segundo escreve na lista e na paginacao
+  // que o ecra de Rotas mostra. O catch evita o dropdown vazio sem explicacao.
+  routeStore.fetchOptions().catch((err) => showToast('error', parseApiError(err)))
 })
 </script>
 

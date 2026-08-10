@@ -122,6 +122,7 @@ async function handleSaveDiscount() {
 // --- Bagagens ---
 const packages = ref([])
 const loadingPackages = ref(false)
+const packagesError = ref('')
 const showAddPackageForm = ref(false)
 const packageForm = ref({ description: '', quantity: 1, amount: null, currency: 'MZN', payment_method: '' })
 const packageError = ref('')
@@ -131,9 +132,14 @@ const printingTagsId = ref(null)
 
 async function fetchPackages() {
   loadingPackages.value = true
+  packagesError.value = ''
   try {
     const res = await bookingStore.fetchPackages(props.booking.id)
     packages.value = res.data
+  } catch (err) {
+    // Sem este catch o ecra dizia "Nenhuma bagagem registada" quando a API
+    // falhava — uma mentira num ecra que serve para cobrar.
+    packagesError.value = parseApiError(err)
   } finally {
     loadingPackages.value = false
   }
@@ -351,7 +357,12 @@ onMounted(() => {
               </div>
 
               <template v-else>
-                <div v-if="packages.length === 0" class="emptyPackages">Nenhuma bagagem registada.</div>
+                <div v-if="packagesError" class="emptyPackages">
+                  {{ packagesError }}
+                  <button type="button" class="retryLink" @click="fetchPackages">Voltar a tentar</button>
+                </div>
+
+                <div v-else-if="packages.length === 0" class="emptyPackages">Nenhuma bagagem registada.</div>
 
                 <div v-else class="packageList">
                   <div v-for="pkg in packages" :key="pkg.id" class="packageRow">
@@ -702,6 +713,17 @@ onMounted(() => {
   font-size: 13px;
   color: #999;
   padding: 8px 0;
+}
+
+.retryLink {
+  margin-left: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  color: #922877;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .packageList {

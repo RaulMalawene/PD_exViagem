@@ -5,6 +5,7 @@ import { useBookingStore } from '../stores/bookingStore'
 import { useTripStore } from '../stores/tripStore'
 import { useRouteStore } from '../stores/routeStore'
 import { useToast } from '../composables/useToast'
+import { useDropdownOptions } from '../composables/useDropdownOptions'
 import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
 import { routeAbbr } from '../utils/routeAbbr'
@@ -19,8 +20,9 @@ const emit = defineEmits(['close'])
 const bookingStore = useBookingStore()
 const tripStore = useTripStore()
 const routeStore = useRouteStore()
-const { trips } = storeToRefs(tripStore)
-const { routes } = storeToRefs(routeStore)
+const loadOptions = useDropdownOptions()
+const { options: trips } = storeToRefs(tripStore)
+const { options: routes } = storeToRefs(routeStore)
 const { showToast } = useToast()
 
 const selectedRouteId = ref('')
@@ -250,7 +252,8 @@ async function handleSubmit() {
   try {
     const payload = {
       session_token: sessionToken,
-      trip_id: Number(selectedTripId.value),
+      // Os identificadores publicos sao uuid: converter para numero dava NaN.
+      trip_id: selectedTripId.value,
       payment_method: paymentMethod.value,
       currency: currency.value,
       bookings: selectedSeats.value.map((seat) => {
@@ -293,8 +296,10 @@ async function handleClose() {
 
 onMounted(() => {
   // Sem o date_from vinham tambem viagens ja realizadas, que nao se podem vender.
-  tripStore.fetchTrips({ per_page: 100, date_from: new Date().toISOString().slice(0, 10) })
-  routeStore.fetchRoutes({ per_page: 100 })
+  loadOptions(
+    tripStore.fetchOptions({ date_from: new Date().toISOString().slice(0, 10) }),
+    routeStore.fetchOptions(),
+  )
   document.addEventListener('click', handleOutsideClick)
 })
 

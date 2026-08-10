@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { toPng } from 'html-to-image'
 import { usePublicBookingStore } from '../../stores/publicBookingStore'
 import { useToast } from '../../composables/useToast'
 import { formatDate } from '../../utils/formatDate'
@@ -14,7 +13,9 @@ const route = useRoute()
 const bookingStore = usePublicBookingStore()
 const { showToast } = useToast()
 
-const sessionToken = route.query.session_token
+// Depois de pago o fluxo e limpo, mas o token fica guardado a parte para esta
+// pagina o poder usar — ver completeFlow()/completedSessionToken().
+const sessionToken = bookingStore.currentSessionToken()
 const paymentMethodUsed = route.query.method ?? null
 
 const selectedTicket = ref(null)
@@ -94,6 +95,8 @@ function viewTicket(booking) {
 }
 
 async function captureTicketImage(el) {
+  // So e precisa ao carregar no botao — nao no arranque da pagina.
+  const { toPng } = await import('html-to-image')
   const dataUrl = await toPng(el, { pixelRatio: 2, backgroundColor: '#ffffff' })
   const blob = await (await fetch(dataUrl)).blob()
   return blob
@@ -147,6 +150,8 @@ async function handleSendWhatsApp(phone) {
 }
 
 async function downloadImage(el, filename) {
+  // So e precisa ao carregar no botao — nao no arranque da pagina.
+  const { toPng } = await import('html-to-image')
   const dataUrl = await toPng(el, { pixelRatio: 2, backgroundColor: '#ffffff' })
   const link = document.createElement('a')
   link.download = filename

@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { loadStripe } from '@stripe/stripe-js'
 import { usePublicBookingStore } from '../../stores/publicBookingStore'
 import { useToast } from '../../composables/useToast'
 import { parseApiError } from '../../utils/parseApiError'
@@ -18,9 +17,13 @@ const bookingStore = usePublicBookingStore()
 const { showToast } = useToast()
 
 const tripId = route.query.trip_id ?? bookingStore.flow.tripId
-const bookings = route.query.bookings
-    ? JSON.parse(route.query.bookings)
-    : (bookingStore.flow.bookingGroup ?? [])
+
+// So do estado local, nunca do URL. A query levava nome do passageiro, digitos
+// do passaporte, validade, numero do bilhete e valores para o historico do
+// browser e para os registos do servidor — a mesma razao pela qual o
+// session_token saiu de la. Sendo editavel, tambem deixava inflacionar o total
+// mostrado, porque o numero de passageiros sai daqui.
+const bookings = bookingStore.flow.bookingGroup ?? []
 
 const loading = ref(true)
 const tripData = ref(null)
@@ -35,7 +38,7 @@ const mpesaSeconds = ref(0)
 const mpesaError = ref('')
 const emolaPhone = ref('')
 
-const sessionToken = route.query.session_token ?? bookingStore.flow.sessionToken
+const sessionToken = bookingStore.currentSessionToken()
 
 let stripeInstance = null
 let stripeElements = null
@@ -133,6 +136,9 @@ async function initCardPayment() {
             const intent = await bookingStore.createPaymentIntent(sessionToken)
             if (isUnmounted) return
 
+            // Carregado so quando o cliente escolhe cartao: quem paga por
+            // M-Pesa deixa de descarregar a biblioteca da Stripe.
+            const { loadStripe } = await import('@stripe/stripe-js')
             stripeInstance = await loadStripe(publishableKey)
             if (isUnmounted) return
 
@@ -227,10 +233,14 @@ async function confirm() {
         router.replace({
             path: '/booking/success',
             query: {
-                session_token: sessionToken,
                 method: selectedMethod.value,
             },
         })
+    } catch (err) {
+        // O objecto de erro devolvido pelo Stripe ja era tratado acima, mas uma
+        // excepcao atirada (rede em baixo, script por carregar) nao era: o botao
+        // piscava e nao acontecia nada, sem qualquer mensagem ao cliente.
+        showToast('error', parseApiError(err))
     } finally {
         submitting.value = false
     }

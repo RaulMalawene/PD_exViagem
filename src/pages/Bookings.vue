@@ -4,6 +4,8 @@ import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import { useBookingStore } from '../stores/bookingStore'
 import { useRouteStore } from '../stores/routeStore'
+import { useToast } from '../composables/useToast'
+import { parseApiError } from '../utils/parseApiError'
 import { formatDate, formatDateTime } from '../utils/formatDate'
 
 import Text from '../components/Text.vue'
@@ -11,6 +13,9 @@ import Profile from '../components/Profile.vue'
 import Search from '../components/Search.vue'
 import StatiscSimple from '../components/StatiscSimple.vue'
 import TableBase from '../components/TableBase.vue'
+import BaseLoader from '../components/BaseLoader.vue'
+import EmptyState from '../components/EmptyState.vue'
+import ErrorState from '../components/ErrorState.vue'
 import Pagination from '../components/Pagination.vue'
 import IconText from '../components/IconText.vue'
 import DateFilter from '../components/filters/DateFilter.vue'
@@ -23,7 +28,10 @@ const route = useRoute()
 const bookingStore = useBookingStore()
 const routeStore = useRouteStore()
 const { bookings, pagination, loading } = storeToRefs(bookingStore)
-const { routes } = storeToRefs(routeStore)
+const { showToast } = useToast()
+
+const loadError = ref(null)
+const { options: routes } = storeToRefs(routeStore)
 
 const selectedBooking = ref(null)
 const showNewBookingModal = ref(false)
@@ -107,18 +115,30 @@ function buildParams(page = 1) {
 }
 
 async function fetchData(page = 1) {
-  await bookingStore.fetchBookings(buildParams(page))
+  loadError.value = null
+
+  try {
+    await bookingStore.fetchBookings(buildParams(page))
+  } catch (err) {
+    // Sem isto o ecra ficava vazio e parecia nao haver registos,
+    // quando na verdade a API tinha falhado.
+    loadError.value = parseApiError(err)
+  }
 }
 
 async function fetchStats() {
-  const base = buildFilterParams()
-
-  const [pending, confirmed, cancelled] = await Promise.all([
-    bookingStore.countBookings({ ...base, status: 'pending' }),
-    bookingStore.countBookings({ ...base, status: 'confirmed' }),
-    bookingStore.countBookings({ ...base, status: 'cancelled' }),
-  ])
-  stats.value = { pending, confirmed, cancelled }
+  try {
+    const base = buildFilterParams()
+  
+    const [pending, confirmed, cancelled] = await Promise.all([
+      bookingStore.countBookings({ ...base, status: 'pending' }),
+      bookingStore.countBookings({ ...base, status: 'confirmed' }),
+      bookingStore.countBookings({ ...base, status: 'cancelled' }),
+    ])
+    stats.value = { pending, confirmed, cancelled }
+  } catch {
+    // Os totais sao acessorios: se falharem, a lista continua a servir.
+  }
 }
 
 function goToPage(page) {
@@ -168,7 +188,7 @@ function closeNewBooking(changed) {
 onMounted(() => {
   fetchData()
   fetchStats()
-  routeStore.fetchRoutes({ per_page: 100 })
+  routeStore.fetchOptions().catch((err) => showToast('error', parseApiError(err)))
 })
 </script>
 
@@ -260,15 +280,11 @@ onMounted(() => {
       </div>
 
       <div class="table">
-        <div v-if="loading" class="loaderWrapper">
-          <div class="loader"></div>
-        </div>
+        <BaseLoader v-if="loading" />
 
-        <div v-else-if="bookings.length === 0" class="emptyState">
-          <i class="fi fi-sr-folder-open emptyIcon"></i>
-          <Text txt="Nenhuma reserva encontrada" color="922877" weight="600" size="22px" />
-          <p class="emptyText">Não existem reservas para os filtros seleccionados.</p>
-        </div>
+        <ErrorState v-else-if="loadError" :message="loadError" @retry="fetchData()" />
+
+        <EmptyState v-else-if="bookings.length === 0" title="Nenhuma reserva encontrada" message="Não existem reservas para os filtros seleccionados." />
 
         <template v-else>
           <TableBase

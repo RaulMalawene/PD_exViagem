@@ -60,6 +60,9 @@ async function fetchWindow() {
         const data = await bookingStore.fetchTripCalendar(props.routeId, windowStart.value, windowEnd)
         availableDates.value = new Set(data.dates)
         priceMzn.value = data.price_mzn
+    } catch {
+        // O calendario e acessorio: sem ele a pesquisa continua a funcionar.
+        availableDates.value = new Set()
     } finally {
         loading.value = false
     }

@@ -1,6 +1,5 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import QRCode from 'qrcode'
 import { formatDate } from '../utils/formatDate'
 import LogoPD from '../assets/LogoPD.svg'
 
@@ -86,6 +85,7 @@ const qrImage = ref('')
 async function buildQr() {
     if (!props.booking.ticket_number) return
     const url = `${window.location.origin}/bilhete/${props.booking.ticket_number}`
+    const { default: QRCode } = await import('qrcode')
     qrImage.value = await QRCode.toDataURL(url, { margin: 0, width: 240 })
 }
 

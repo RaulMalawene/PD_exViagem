@@ -126,6 +126,20 @@ export const usePublicBookingStore = defineStore('publicBooking', {
       sessionStorage.setItem(FLOW_STORAGE_KEY, JSON.stringify(this.flow))
     },
 
+    /**
+     * O token da sessao de reserva, sempre a partir do estado local.
+     *
+     * Este token e a unica credencial do fluxo publico: dá acesso aos dados do
+     * passageiro e permite pagar. Antes viajava na query string, onde ficava no
+     * historico do browser, nos registos do servidor e no cabecalho Referer de
+     * qualquer recurso externo da pagina. Passa a nao sair do sessionStorage.
+     */
+    currentSessionToken() {
+      return this.flow.sessionToken
+        || sessionStorage.getItem('booking_session_token')
+        || this.completedSessionToken()
+    },
+
     stepRoute(step) {
       const flow = this.flow
 
@@ -145,7 +159,6 @@ export const usePublicBookingStore = defineStore('publicBooking', {
           query: {
             trip_id: flow.tripId,
             seats: (flow.selectedSeats ?? []).join(','),
-            session_token: flow.sessionToken,
           },
         }
       }
