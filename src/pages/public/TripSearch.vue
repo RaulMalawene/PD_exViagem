@@ -2,10 +2,14 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePublicBookingStore } from '../../stores/publicBookingStore'
+import { parseApiError } from '../../utils/parseApiError'
 import DatePicker from '../../components/DatePicker.vue'
 
 const router = useRouter()
 const bookingStore = usePublicBookingStore()
+
+const loadingRoutes = ref(true)
+const loadError = ref(null)
 
 const selectedRoute = ref('')
 const selectedDate = ref('')
@@ -54,11 +58,27 @@ onMounted(async () => {
     // startNewFlow tambem limpa a marca de "ja pago", para quem volta a
     // landing page poder fazer uma reserva nova.
     bookingStore.startNewFlow()
-    await bookingStore.fetchRoutes()
-    if (!selectedRoute.value && bookingStore.routes.length) {
-        selectedRoute.value = String(bookingStore.routes[0].id)
-    }
+    await carregarRotas()
 })
+
+// Esta e a porta de entrada do cliente. Sem tratamento, uma API em baixo
+// mostrava um dropdown vazio e o cliente concluia que nao havia viagens.
+async function carregarRotas() {
+    loadingRoutes.value = true
+    loadError.value = null
+
+    try {
+        await bookingStore.fetchRoutes()
+
+        if (!selectedRoute.value && bookingStore.routes.length) {
+            selectedRoute.value = String(bookingStore.routes[0].id)
+        }
+    } catch (err) {
+        loadError.value = parseApiError(err)
+    } finally {
+        loadingRoutes.value = false
+    }
+}
 onUnmounted(() => document.removeEventListener('click', closeAll))
 </script>
 
@@ -80,9 +100,12 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
 
                 <div class="field">
                     <label class="fieldLabel">Rota</label>
-                    <div class="customSelect" :class="{ open: routeOpen }" @click.stop="routeOpen = !routeOpen">
+                    <div class="customSelect" :class="{ open: routeOpen, disabled: loadingRoutes || loadError }"
+                        @click.stop="!loadingRoutes && !loadError && (routeOpen = !routeOpen)">
                         <i class="fi fi-rs-bus selectIcon" />
-                        <span class="selectValue">{{ selectedRouteLabel }}</span>
+                        <span v-if="loadingRoutes" class="selectValue muted">A carregar rotas...</span>
+                        <span v-else-if="loadError" class="selectValue muted">Rotas indisponíveis</span>
+                        <span v-else class="selectValue">{{ selectedRouteLabel }}</span>
                         <i class="fi fi-rs-angle-small-down chevron" :class="{ rotated: routeOpen }" />
                         <Transition name="dropdown">
                             <ul v-if="routeOpen" class="dropdownList">
@@ -94,6 +117,12 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
                             </ul>
                         </Transition>
                     </div>
+                </div>
+
+                <div v-if="loadError" class="searchError">
+                    <i class="fi fi-sr-exclamation" />
+                    <span>{{ loadError }}</span>
+                    <button class="searchRetry" @click.stop="carregarRotas">Voltar a tentar</button>
                 </div>
 
                 <div class="field">
@@ -177,6 +206,39 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
 </template>
 
 <style scoped>
+.customSelect.disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.selectValue.muted {
+    color: #999;
+}
+
+.searchError {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: #FDECEA;
+    color: #C0392B;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+}
+
+.searchRetry {
+    margin-left: auto;
+    border: none;
+    background: #C0392B;
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
 .page {
     min-height: 100vh;
     background: #F6F6F6;

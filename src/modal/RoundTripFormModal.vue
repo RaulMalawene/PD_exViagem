@@ -5,6 +5,7 @@ import { useRoundTripStore } from '../stores/roundTripStore'
 import { useTripStore } from '../stores/tripStore'
 import { useRouteStore } from '../stores/routeStore'
 import { useToast } from '../composables/useToast'
+import { useDropdownOptions } from '../composables/useDropdownOptions'
 import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
 import { routeAbbr } from '../utils/routeAbbr'
@@ -22,8 +23,9 @@ const emit = defineEmits(['close'])
 const roundTripStore = useRoundTripStore()
 const tripStore = useTripStore()
 const routeStore = useRouteStore()
-const { trips } = storeToRefs(tripStore)
-const { routes } = storeToRefs(routeStore)
+const loadOptions = useDropdownOptions()
+const { options: trips } = storeToRefs(tripStore)
+const { options: routes } = storeToRefs(routeStore)
 const { showToast } = useToast()
 
 const localRoundTrip = ref(props.roundTrip)
@@ -86,8 +88,8 @@ async function handleSave() {
 
   try {
     const payload = {
-      outbound_trip_id: Number(form.value.outbound_trip_id),
-      return_trip_id: form.value.return_trip_id ? Number(form.value.return_trip_id) : null,
+      outbound_trip_id: form.value.outbound_trip_id,
+      return_trip_id: form.value.return_trip_id || null,
       notes: form.value.notes || null,
     }
 
@@ -119,8 +121,7 @@ onMounted(() => {
   if (props.roundTrip?.id) {
     params.except_round_trip_id = props.roundTrip.id
   }
-  tripStore.fetchTrips(params)
-  routeStore.fetchRoutes({ per_page: 100 })
+  loadOptions(tripStore.fetchOptions(params), routeStore.fetchOptions())
 })
 </script>
 

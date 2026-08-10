@@ -31,6 +31,7 @@ const adminMenu = [
       { txt: 'Motoristas', icon: 'fi fi-rs-user-helmet-safety', route: '/dashboard/drivers' },
       { txt: 'Ajudantes', icon: 'fi fi-rs-user-helmet-safety', route: '/dashboard/helpers' },
       { txt: 'Utilizadores', icon: 'fi fi-rs-users', route: '/dashboard/users' },
+      { txt: 'Auditoria', icon: 'fi fi-rs-time-past', route: '/dashboard/audit-logs' },
     ],
   },
   {

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { usePublicBookingStore } from '../../stores/publicBookingStore'
+import { parseApiError } from '../../utils/parseApiError'
 import BookingStepper from '../../components/BookingStepper.vue'
 import DateStrip from '../../components/DateStrip.vue'
 
@@ -11,6 +12,7 @@ const bookingStore = usePublicBookingStore()
 
 const loading = ref(true)
 const selectedDate = ref(route.query.date ?? '')
+const loadError = ref(null)
 const routeId = ref(route.query.route_id ?? '')
 const dateStripAnchor = ref(null)
 
@@ -57,13 +59,21 @@ async function fetchTrips() {
             route_id: routeId.value,
             ...(selectedDate.value ? { date: selectedDate.value } : {}),
         })
+        loadError.value = null
+    } catch (err) {
+        // Sem este catch o erro era engolido e a pagina mostrava
+        // "sem viagens" — o cliente concluia que nao havia viagens.
+        loadError.value = parseApiError(err)
     } finally {
         loading.value = false
     }
 }
 
 onMounted(async () => {
-    await bookingStore.fetchRoutes()
+    // As rotas so aquecem a cache e nem sao lidas nesta pagina. Sem este
+    // catch, uma falha aqui impedia o fetchTrips() de correr e o loading
+    // ficava preso a true — spinner eterno para o cliente.
+    await bookingStore.fetchRoutes().catch(() => {})
     await fetchTrips()
 })
 </script>
@@ -90,6 +100,14 @@ onMounted(async () => {
                 <!-- LOADING -->
                 <div v-if="loading" class="stateBox">
                     <div class="spinner" />
+                </div>
+
+                <!-- ERRO: distinto de "sem viagens", que era o que se via antes -->
+                <div v-else-if="loadError" class="stateBox">
+                    <i class="fi fi-sr-exclamation emptyIcon" />
+                    <p class="emptyTitle">Não foi possível carregar as viagens</p>
+                    <p class="emptyDesc">{{ loadError }}</p>
+                    <button class="backLink" @click="fetchTrips">Voltar a tentar</button>
                 </div>
 
                 <!-- EMPTY COM DATA ESPECIFICA -->

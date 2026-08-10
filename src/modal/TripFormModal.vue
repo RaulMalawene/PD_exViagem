@@ -6,6 +6,7 @@ import { useVehicleStore } from '../stores/vehicleStore'
 import { useDriverStore } from '../stores/driverStore'
 import { useHelperStore } from '../stores/helperStore'
 import { useToast } from '../composables/useToast'
+import { useDropdownOptions } from '../composables/useDropdownOptions'
 import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
 import BaseInput from '../components/BaseInput.vue'
@@ -25,6 +26,7 @@ const routeStore = useRouteStore()
 const vehicleStore = useVehicleStore()
 const driverStore = useDriverStore()
 const helperStore = useHelperStore()
+const loadOptions = useDropdownOptions()
 const { showToast } = useToast()
 
 const localTrip = ref(props.trip)
@@ -53,10 +55,10 @@ const statusOptions = [
   { id: 'delayed', name: 'Com atraso' },
 ]
 
-const routeOptions = computed(() => routeStore.routes.map((r) => ({ id: r.id, name: r.name })))
-const vehicleOptions = computed(() => vehicleStore.vehicles.map((v) => ({ id: v.id, name: `${v.plate} - ${v.brand} ${v.model}` })))
-const driverOptions = computed(() => driverStore.drivers.map((d) => ({ id: d.id, name: d.name })))
-const helperOptions = computed(() => helperStore.helpers.map((h) => ({ id: h.id, name: h.name })))
+const routeOptions = computed(() => routeStore.options.map((r) => ({ id: r.id, name: r.name })))
+const vehicleOptions = computed(() => vehicleStore.options.map((v) => ({ id: v.id, name: `${v.plate} - ${v.brand} ${v.model}` })))
+const driverOptions = computed(() => driverStore.options.map((d) => ({ id: d.id, name: d.name })))
+const helperOptions = computed(() => helperStore.options.map((h) => ({ id: h.id, name: h.name })))
 
 function clearErrors() {
   formErrors.value = { route_id: '', departure_date: '', departure_time: '' }
@@ -134,10 +136,12 @@ function handleClose() {
 }
 
 onMounted(() => {
-  routeStore.fetchRoutes({ per_page: 100 })
-  vehicleStore.fetchVehicles({ per_page: 100 })
-  driverStore.fetchDrivers({ per_page: 100 })
-  helperStore.fetchHelpers({ per_page: 100, all: 1 })
+  loadOptions(
+    routeStore.fetchOptions(),
+    vehicleStore.fetchOptions(),
+    driverStore.fetchOptions(),
+    helperStore.fetchOptions({ all: 1 }),
+  )
 })
 </script>
 

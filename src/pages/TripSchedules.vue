@@ -9,6 +9,9 @@ import Text from '../components/Text.vue'
 import Profile from '../components/Profile.vue'
 import StatiscSimple from '../components/StatiscSimple.vue'
 import TableBase from '../components/TableBase.vue'
+import BaseLoader from '../components/BaseLoader.vue'
+import EmptyState from '../components/EmptyState.vue'
+import ErrorState from '../components/ErrorState.vue'
 import Pagination from '../components/Pagination.vue'
 import IconText from '../components/IconText.vue'
 import TripScheduleFormModal from '../modal/TripScheduleFormModal.vue'
@@ -18,6 +21,7 @@ const scheduleStore = useTripScheduleStore()
 const { schedules, pagination, loading } = storeToRefs(scheduleStore)
 const { showToast } = useToast()
 
+const loadError = ref(null)
 const editingSchedule = ref(null)
 const showFormModal = ref(false)
 const deleteTarget = ref(null)
@@ -51,7 +55,15 @@ function buildParams(page = 1) {
 }
 
 async function fetchData(page = 1) {
-  await scheduleStore.fetchSchedules(buildParams(page))
+  loadError.value = null
+
+  try {
+    await scheduleStore.fetchSchedules(buildParams(page))
+  } catch (err) {
+    // Sem isto o ecra ficava vazio e o utilizador julgava que
+    // nao havia registos, quando na verdade a API tinha falhado.
+    loadError.value = parseApiError(err)
+  }
 }
 
 function goToPage(page) {
@@ -126,15 +138,11 @@ onMounted(() => fetchData())
       </div>
 
       <div class="table">
-        <div v-if="loading" class="loaderWrapper">
-          <div class="loader"></div>
-        </div>
+        <BaseLoader v-if="loading" />
 
-        <div v-else-if="schedules.length === 0" class="emptyState">
-          <i class="fi fi-sr-folder-open emptyIcon"></i>
-          <Text txt="Nenhum horário encontrado" color="922877" weight="600" size="22px" />
-          <p class="emptyText">Ainda não existem horários registados.</p>
-        </div>
+        <ErrorState v-else-if="loadError" :message="loadError" @retry="fetchData()" />
+
+        <EmptyState v-else-if="schedules.length === 0" title="Nenhum horário encontrado" message="Ainda não existem horários registados." />
 
         <template v-else>
           <TableBase
@@ -238,41 +246,6 @@ header {
   gap: 16px;
 }
 
-.loaderWrapper,
-.emptyState {
-  height: 420px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-
-.loader {
-  width: 36px;
-  height: 36px;
-  border: 3px solid #f0f0f0;
-  border-top-color: #922877;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.emptyIcon {
-  font-size: 48px;
-  color: #922877;
-  opacity: 0.4;
-}
-
-.emptyText {
-  font-size: 14px;
-  color: #999;
-  text-align: center;
-}
-
 @media (max-width: 767px) {
   .filterData {
     margin-top: 20px;
@@ -302,9 +275,5 @@ header {
     padding: 16px;
   }
 
-  .loaderWrapper,
-  .emptyState {
-    height: 240px;
-  }
 }
 </style>

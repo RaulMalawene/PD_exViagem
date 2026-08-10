@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouteStore } from '../stores/routeStore'
 import { useToast } from '../composables/useToast'
+import { useDropdownOptions } from '../composables/useDropdownOptions'
 import { parseApiError } from '../utils/parseApiError'
 import BaseInput from '../components/BaseInput.vue'
 import InputDropDown from '../components/InputDropDown.vue'
@@ -17,7 +18,8 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const routeStore = useRouteStore()
-const { routes } = storeToRefs(routeStore)
+const loadOptions = useDropdownOptions()
+const { options: routes } = storeToRefs(routeStore)
 const { showToast } = useToast()
 
 const localRoute = ref(props.route)
@@ -44,7 +46,7 @@ const reverseRouteOptions = computed(() => [
 ])
 
 onMounted(() => {
-  if (!routes.value.length) routeStore.fetchRoutes()
+  loadOptions(routeStore.fetchOptions())
 })
 
 const formErrors = ref({ name: '', origin: '', destination: '', price_mzn: '', price_zar: '' })

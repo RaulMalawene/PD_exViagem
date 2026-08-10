@@ -210,12 +210,13 @@ function proceed() {
     holdExpiresAt,
   })
 
+  // O session_token nao vai no URL: fica no sessionStorage e no estado do
+  // fluxo. E a credencial que dá acesso aos dados do passageiro e ao pagamento.
   router.push({
     path: '/booking/passengers',
     query: {
       trip_id: tripId,
       seats: selectedSeats.value.join(','),
-      session_token: sessionToken.value,
     },
   })
 }
@@ -227,14 +228,19 @@ onMounted(() => {
   if (flow.bookingGroup && String(flow.tripId) === String(tripId)) {
     router.replace({
       path: '/booking/payment',
-      query: { trip_id: tripId, bookings: JSON.stringify(flow.bookingGroup) },
+      query: { trip_id: tripId },
     })
     return
   }
 
 
+  // Ha uma reserva anterior por pagar e esta a comecar-se outra: o token tem
+  // de ser novo. Mantendo o antigo, as reservas novas juntavam-se as antigas e
+  // o pagamento cobrava as duas de uma vez.
   if (flow.bookingGroup) {
-    bookingStore.saveFlow({ bookingGroup: null, passengers: null })
+    sessionStorage.removeItem('booking_session_token')
+    sessionToken.value = getOrCreateSessionToken()
+    bookingStore.saveFlow({ bookingGroup: null, passengers: null, sessionToken: sessionToken.value })
   }
 
   fetchAvailability()

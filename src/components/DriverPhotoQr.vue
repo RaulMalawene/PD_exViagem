@@ -1,6 +1,5 @@
 <script setup>
 import { ref, onUnmounted } from 'vue'
-import QRCode from 'qrcode'
 import { useDriverStore } from '../stores/driverStore'
 
 const props = defineProps({
@@ -68,6 +67,7 @@ async function generateQr() {
   try {
     const res = await driverStore.generatePhotoToken(props.driverId)
     captureUrl.value = `${window.location.origin}/captura-motorista/${res.data.token}`
+    const { default: QRCode } = await import('qrcode')
     qrImage.value = await QRCode.toDataURL(captureUrl.value)
     status.value = 'waiting'
     startPolling(props.photoUrl)
