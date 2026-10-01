@@ -147,6 +147,30 @@ const trustRef = ref(null);
 const trustVisible = ref(false);
 const howRef = ref(null);
 const howVisible = ref(false);
+
+// No telemovel a estrada e vertical e a altura de cada passo depende do texto,
+// por isso medimos onde ficam os circulos para o autocarro saber onde parar.
+const stepsRef = ref(null);
+const busStops = ref({});
+let stepsResizeObserver = null;
+
+function measureBusStops() {
+  const list = stepsRef.value;
+  if (!list) return;
+  const top = list.getBoundingClientRect().top;
+  const centers = [...list.querySelectorAll(".stepNode")].map((node) => {
+    const rect = node.getBoundingClientRect();
+    return rect.top - top + rect.height / 2;
+  });
+  if (centers.length < 3) return;
+  // autocarro de 28px: comeca logo abaixo do 1.º circulo e para 8px antes
+  // do 2.º (bilhete) e do 3.º, sem os tapar
+  busStops.value = {
+    "--bus-start": `${centers[0] + 36}px`,
+    "--bus-stop": `${centers[1] - 64}px`,
+    "--bus-end": `${centers[2] - 64}px`,
+  };
+}
 const contactRef = ref(null);
 const contactVisible = ref(false);
 const revealObservers = [];
@@ -242,6 +266,9 @@ onMounted(async () => {
 
   revealOnce(trustRef.value, trustVisible);
   revealOnce(howRef.value, howVisible);
+  measureBusStops();
+  stepsResizeObserver = new ResizeObserver(measureBusStops);
+  if (stepsRef.value) stepsResizeObserver.observe(stepsRef.value);
   revealOnce(contactRef.value, contactVisible);
 
   bookingStore.startNewFlow();
@@ -271,6 +298,7 @@ onUnmounted(() => {
   clearTimeout(highlightTimer);
   fleetObserver?.disconnect();
   revealObservers.forEach((o) => o.disconnect());
+  stepsResizeObserver?.disconnect();
   document.removeEventListener("visibilitychange", onVisibilityChange);
 });
 </script>
@@ -436,7 +464,7 @@ onUnmounted(() => {
           casa.
         </p>
 
-        <ol class="steps">
+        <ol ref="stepsRef" class="steps" :style="busStops">
           <!-- estrada que liga os passos; o autocarro percorre-a uma vez -->
           <li class="howRoad" aria-hidden="true">
             <span class="howBus"><i class="fi fi-rs-bus" /></span>
@@ -1623,9 +1651,62 @@ onUnmounted(() => {
   object-fit: contain;
 }
 
-/* Estrada horizontal: so existe a partir do tablet */
+/* No telemovel a estrada desenha-se pelos troços de cada passo; este
+   elemento so serve de pista ao autocarro, que desce pela linha vertical. */
 .howRoad {
-  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.howBus {
+  position: absolute;
+  left: 14px;
+  top: var(--bus-end, 0);
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #922877;
+  color: #fff;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(146, 40, 119, 0.35);
+  opacity: 0;
+}
+
+.howBus .fi {
+  position: relative;
+  top: 2px;
+}
+
+.howSection.visible .howBus {
+  opacity: 1;
+  animation: howBusDriveDown 6.4s linear 1s backwards;
+}
+
+/* chega ao bilhete aos 1s + 2,2s e fica 2s parado */
+.howSection.visible .stepNode.ticket {
+  animation: howTicketPing 2s ease-out 3.2s;
+}
+
+@keyframes howBusDriveDown {
+  0% {
+    top: var(--bus-start);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
+  }
+  34.4% {
+    top: var(--bus-stop);
+  }
+  65.6% {
+    top: var(--bus-stop);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
+  }
+  100% {
+    top: var(--bus-end);
+  }
 }
 
 @keyframes howIn {
@@ -2805,10 +2886,6 @@ onUnmounted(() => {
     opacity: 1;
     left: calc(100% - 64px);
     animation: howBusDrive 6.4s linear 1s backwards;
-  }
-  /* chega ao bilhete aos 1s + 2,2s */
-  .howSection.visible .stepNode.ticket {
-    animation: howTicketPing 2s ease-out 3.2s;
   }
 
   /* rota horizontal */
