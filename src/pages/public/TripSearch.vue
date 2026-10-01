@@ -5,7 +5,15 @@ import { usePublicBookingStore } from "../../stores/publicBookingStore";
 import { parseApiError } from "../../utils/parseApiError";
 import DatePicker from "../../components/DatePicker.vue";
 import heroBg from "../../assets/hero-boarding.png";
-import vanFleet from "../../assets/van-fleet.jpeg";
+import fotoFrente from "../../assets/imagem_viatura/sprinter-frente.jpeg";
+import fotoComAtrelado from "../../assets/imagem_viatura/sprinter-com-atrelado.jpeg";
+import fotoInteriorCorredor from "../../assets/imagem_viatura/interior-corredor.jpeg";
+import fotoLateral from "../../assets/imagem_viatura/sprinter-lateral.jpeg";
+import fotoDuasPerfil from "../../assets/imagem_viatura/sprinter-duas-perfil.jpeg";
+import fotoInteriorBancos from "../../assets/imagem_viatura/interior-bancos.jpeg";
+import fotoAtrelados from "../../assets/imagem_viatura/atrelados-bagagem.jpeg";
+import fotoDuasFrente from "../../assets/imagem_viatura/sprinter-duas-frente.jpeg";
+import fotoBancoDetalhe from "../../assets/imagem_viatura/interior-banco-detalhe.jpeg";
 import LogoPD from "../../assets/LogoPD.svg";
 import whatsappIcon from "../../assets/whatsapp.png";
 import gmailIcon from "../../assets/gmail.png";
@@ -56,6 +64,75 @@ function search() {
   });
 }
 
+// ── Galeria da frota ──
+// As fotos sao quadradas e as carrinhas ficam na metade de cima, dai o "pos"
+// por foto para o recorte nao cortar o veiculo.
+const fleetPhotos = [
+  { src: fotoFrente, pos: "50% 45%", alt: "Mercedes-Benz Sprinter da Portador Diário vista de frente, com a pintura roxa e lima" },
+  { src: fotoComAtrelado, pos: "40% 35%", alt: "Carrinha da Portador Diário com o atrelado de bagagem engatado" },
+  { src: fotoInteriorCorredor, pos: "50% 40%", alt: "Interior da carrinha: filas de bancos individuais e corredor central" },
+  { src: fotoLateral, pos: "60% 40%", alt: "Lateral da carrinha com o logotipo Portador Diário" },
+  { src: fotoDuasPerfil, pos: "50% 35%", alt: "Duas carrinhas Sprinter da frota estacionadas lado a lado" },
+  { src: fotoInteriorBancos, pos: "50% 45%", alt: "Bancos estofados com apoio de braço" },
+  { src: fotoAtrelados, pos: "50% 45%", alt: "Atrelados de bagagem da Portador Diário vistos de trás" },
+  { src: fotoDuasFrente, pos: "50% 30%", alt: "Frente de duas carrinhas Mercedes-Benz Sprinter" },
+  { src: fotoBancoDetalhe, pos: "50% 50%", alt: "Detalhe de um banco de passageiro" },
+];
+
+const FLEET_INTERVAL = 5000;
+const fleetIndex = ref(0);
+const fleetHover = ref(false);
+const pageHidden = ref(false);
+const fleetInView = ref(false);
+// So se carrega uma foto quando chega a vez dela (ou a seguinte), para nao
+// descarregar as 9 de uma vez ao abrir a pagina.
+const fleetLoaded = ref(new Set([0, 1, 2]));
+const fleetMediaRef = ref(null);
+let fleetObserver = null;
+let touchStartX = 0;
+
+const fleetRunning = computed(
+  () => fleetInView.value && !fleetHover.value && !pageHidden.value,
+);
+
+function goToPhoto(i) {
+  const total = fleetPhotos.length;
+  fleetIndex.value = (i + total) % total;
+  const loaded = new Set(fleetLoaded.value);
+  for (let k = 0; k < 3; k++) loaded.add((fleetIndex.value + k) % total);
+  fleetLoaded.value = loaded;
+}
+
+// Lugar de cada foto no baralho, relativo a que esta a frente
+function cardPosition(i) {
+  const total = fleetPhotos.length;
+  const offset = (i - fleetIndex.value + total) % total;
+  if (offset === 0) return "front";
+  if (offset === 1) return "back1";
+  if (offset === 2) return "back2";
+  if (offset === total - 1) return "out";
+  return "hidden";
+}
+
+// O relogio da galeria e a propria barra de progresso (animacao CSS): quando
+// termina, passa a foto seguinte. Assim pausar/retomar nunca dessincroniza.
+function onFleetProgressEnd(i) {
+  if (i === fleetIndex.value) goToPhoto(i + 1);
+}
+
+function onFleetTouchStart(e) {
+  touchStartX = e.touches[0].clientX;
+}
+
+function onFleetTouchEnd(e) {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 40) goToPhoto(fleetIndex.value + (dx < 0 ? 1 : -1));
+}
+
+function onVisibilityChange() {
+  pageHidden.value = document.hidden;
+}
+
 const searchCardRef = ref(null);
 const highlightSearch = ref(false);
 let highlightTimer = null;
@@ -98,6 +175,14 @@ onMounted(async () => {
   // anterior para o token de sessao nao ser reaproveitado entre reservas diferentes.
   // startNewFlow tambem limpa a marca de "ja pago", para quem volta a
   // landing page poder fazer uma reserva nova.
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  // A galeria so roda quando a secção esta no ecra
+  fleetObserver = new IntersectionObserver(
+    ([entry]) => (fleetInView.value = entry.isIntersecting),
+    { threshold: 0.3 },
+  );
+  if (fleetMediaRef.value) fleetObserver.observe(fleetMediaRef.value);
+
   bookingStore.startNewFlow();
   await carregarRotas();
 });
@@ -123,6 +208,8 @@ async function carregarRotas() {
 onUnmounted(() => {
   document.removeEventListener("click", closeAll);
   clearTimeout(highlightTimer);
+  fleetObserver?.disconnect();
+  document.removeEventListener("visibilitychange", onVisibilityChange);
 });
 </script>
 
@@ -442,24 +529,88 @@ onUnmounted(() => {
     <section id="frota" class="fleetSection">
       <img :src="symbolLima" alt="" aria-hidden="true" class="fleetWatermark" />
       <div class="fleetContent">
-        <figure class="fleetMedia">
-          <span class="fleetLivery" aria-hidden="true" />
-          <img
-            :src="vanFleet"
-            alt="Carrinha Mercedes-Benz Sprinter da Portador Diário, pintada a roxo e lima, com atrelado de bagagem"
-            class="fleetImage"
-            loading="lazy"
-          />
-          <figcaption class="fleetCaption">
-            <i class="fi fi-rs-camera" /> Foto real da nossa carrinha
-          </figcaption>
-        </figure>
+        <div ref="fleetMediaRef" class="fleetMedia">
+          <div
+            class="fleetSlider"
+            role="region"
+            aria-roledescription="carrossel"
+            aria-label="Fotografias da frota"
+            tabindex="0"
+            @mouseenter="fleetHover = true"
+            @mouseleave="fleetHover = false"
+            @focusin="fleetHover = true"
+            @focusout="fleetHover = false"
+            @keydown.left.prevent="goToPhoto(fleetIndex - 1)"
+            @keydown.right.prevent="goToPhoto(fleetIndex + 1)"
+            @touchstart.passive="onFleetTouchStart"
+            @touchend="onFleetTouchEnd"
+          >
+            <!-- Baralho: a foto da frente sai, a de tras avanca para o lugar dela -->
+            <div
+              v-for="(photo, i) in fleetPhotos"
+              :key="photo.src"
+              class="fleetCard"
+              :class="cardPosition(i)"
+              :aria-hidden="i !== fleetIndex"
+              @click="cardPosition(i) === 'back1' && goToPhoto(i)"
+            >
+              <img
+                v-if="fleetLoaded.has(i)"
+                :src="photo.src"
+                :alt="photo.alt"
+                :style="{ objectPosition: photo.pos }"
+                class="fleetSlide"
+                decoding="async"
+              />
+            </div>
+
+            <div class="fleetControls">
+              <div class="fleetShade" aria-hidden="true" />
+
+              <button
+                class="fleetNav prev"
+                aria-label="Foto anterior"
+                @click="goToPhoto(fleetIndex - 1)"
+              >
+                <i class="fi fi-rs-angle-small-left" />
+              </button>
+              <button
+                class="fleetNav next"
+                aria-label="Foto seguinte"
+                @click="goToPhoto(fleetIndex + 1)"
+              >
+                <i class="fi fi-rs-angle-small-right" />
+              </button>
+
+              <div class="fleetProgress">
+                <button
+                  v-for="(photo, i) in fleetPhotos"
+                  :key="photo.src"
+                  class="fleetDot"
+                  :class="{ active: i === fleetIndex, done: i < fleetIndex }"
+                  :aria-label="`Ver foto ${i + 1} de ${fleetPhotos.length}`"
+                  :aria-current="i === fleetIndex"
+                  @click="goToPhoto(i)"
+                >
+                  <span
+                    class="fleetDotFill"
+                    :style="{
+                      animationDuration: `${FLEET_INTERVAL}ms`,
+                      animationPlayState: fleetRunning ? 'running' : 'paused',
+                    }"
+                    @animationend="onFleetProgressEnd(i)"
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div class="fleetText">
           <p class="sectionTag">A nossa frota</p>
-          <h2 class="sectionTitle">A carrinha em que vai viajar</h2>
+          <h2 class="sectionTitle">As carrinhas em que vai viajar</h2>
           <p class="fleetDesc">
-            Fazemos a rota numa Mercedes-Benz Sprinter com as cores da
+            Fazemos a rota em carrinhas Mercedes-Benz Sprinter com as cores da
             Portador Diário. A bagagem segue num atrelado atrás, por isso o
             espaço dentro da carrinha fica para os passageiros.
           </p>
@@ -467,19 +618,19 @@ onUnmounted(() => {
           <dl class="fleetSpecs">
             <div class="spec">
               <dt>19</dt>
-              <dd>lugares individuais</dd>
+              <dd>Lugares individuais</dd>
             </div>
             <div class="spec">
               <dt>A/C</dt>
-              <dd>ar condicionado</dd>
+              <dd>Ar condicionado</dd>
             </div>
             <div class="spec">
               <dt>1</dt>
-              <dd>atrelado só para bagagem</dd>
+              <dd>Atrelado só para bagagem</dd>
             </div>
             <div class="spec">
               <dt>2×</dt>
-              <dd>partidas por semana em cada sentido</dd>
+              <dd>Partidas por semana em cada sentido</dd>
             </div>
           </dl>
 
@@ -1263,55 +1414,268 @@ onUnmounted(() => {
   gap: 48px;
 }
 
+/* ── Baralho de fotos ──
+   A foto da frente ocupa o cartao principal; as duas seguintes espreitam por
+   tras (em baixo e a direita), com um veu roxo da marca. Ao avancar, a da
+   frente sai para a esquerda e a de tras sobe para o lugar dela. */
 .fleetMedia {
+  --step: 14px;
   position: relative;
-  margin: 0;
+  padding: 0 calc(var(--step) * 2) calc(var(--step) * 2) 0;
 }
 
-/* Faixas roxo/lima atras da foto, tiradas da pintura da propria carrinha */
-.fleetLivery {
-  position: absolute;
-  inset: 18px -14px -14px 18px;
+.fleetSlider {
+  position: relative;
+  height: 300px;
+  touch-action: pan-y;
   border-radius: 20px;
-  background: linear-gradient(
-    115deg,
-    #922877 0%,
-    #922877 58%,
-    #c5d22d 58%,
-    #c5d22d 72%,
-    #922877 72%
-  );
 }
 
-.fleetImage {
-  position: relative;
+.fleetSlider:focus-visible {
+  outline: 3px solid #922877;
+  outline-offset: 6px;
+}
+
+.fleetCard {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #0d0d2b;
+  /* encolhe em direcao ao canto inferior direito, para espreitar por la */
+  transform-origin: 100% 100%;
+  box-shadow: 0 18px 40px rgba(13, 13, 43, 0.2);
+  isolation: isolate;
+  transition:
+    transform 0.85s cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 0.85s ease,
+    box-shadow 0.85s ease;
+}
+
+/* Veu roxo nas fotos de tras; desaparece quando a foto chega a frente */
+.fleetCard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #922877;
+  opacity: 0;
+  transition: opacity 0.85s ease;
+  pointer-events: none;
+}
+
+.fleetCard.front {
+  z-index: 4;
+  transform: none;
+}
+
+.fleetCard.back1 {
+  z-index: 3;
+  transform: translate(var(--step), var(--step)) scale(0.94);
+  box-shadow: 0 10px 24px rgba(13, 13, 43, 0.16);
+  cursor: pointer;
+}
+
+.fleetCard.back1::after {
+  opacity: 0.55;
+}
+
+.fleetCard.back1:hover {
+  transform: translate(calc(var(--step) * 1.3), calc(var(--step) * 1.3))
+    scale(0.94);
+}
+
+.fleetCard.back2 {
+  z-index: 2;
+  transform: translate(calc(var(--step) * 2), calc(var(--step) * 2))
+    scale(0.88);
+  box-shadow: 0 6px 16px rgba(13, 13, 43, 0.12);
+}
+
+.fleetCard.back2::after {
+  opacity: 0.8;
+}
+
+.fleetCard.hidden {
+  z-index: 1;
+  opacity: 0;
+  transform: translate(calc(var(--step) * 3), calc(var(--step) * 3))
+    scale(0.82);
+}
+
+/* A que acabou de sair: desliza para a esquerda, inclina e desaparece */
+.fleetCard.out {
+  z-index: 5;
+  opacity: 0;
+  transform: translate(-70%, 4%) rotate(-7deg);
+  pointer-events: none;
+}
+
+.fleetSlide {
   width: 100%;
-  height: 260px;
+  height: 100%;
   object-fit: cover;
-  object-position: 40% 60%;
-  border-radius: 20px;
-  box-shadow: 0 18px 40px rgba(13, 13, 43, 0.18);
+  transform: scale(1.08);
+  transition: transform 6s ease-out;
 }
 
-.fleetCaption {
+/* Zoom lento so na foto da frente */
+.fleetCard.front .fleetSlide {
+  transform: scale(1);
+}
+
+/* Controlos ficam por cima do cartao da frente, sempre no mesmo sitio */
+.fleetControls {
   position: absolute;
-  left: 14px;
-  bottom: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(13, 13, 43, 0.72);
-  backdrop-filter: blur(6px);
-  color: #fff;
-  font-size: 12px;
-  padding: 6px 12px;
-  border-radius: 8px;
+  inset: 0;
+  z-index: 6;
+  border-radius: 20px;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-.fleetCaption .fi {
+.fleetControls button {
+  pointer-events: auto;
+}
+
+
+/* Sombra so em baixo, para os controlos se lerem sobre qualquer foto */
+.fleetShade {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 90px;
+  background: linear-gradient(to top, rgba(13, 13, 43, 0.55), transparent);
+  pointer-events: none;
+}
+
+.fleetNav {
+  position: absolute;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(6px);
+  color: #0d0d2b;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(13, 13, 43, 0.18);
+  opacity: 0;
+  transform: translateY(-50%) scale(0.9);
+  transition:
+    opacity 0.25s,
+    transform 0.25s,
+    background 0.15s;
+}
+
+.fleetNav .fi {
   position: relative;
-  top: 1px;
-  color: #c5d22d;
+  top: 2px;
+}
+
+.fleetNav.prev {
+  left: 14px;
+}
+
+.fleetNav.next {
+  right: 14px;
+}
+
+.fleetSlider:hover .fleetNav,
+.fleetSlider:focus-within .fleetNav {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.fleetNav:hover {
+  background: #fff;
+}
+
+/* Em ecras de toque nao ha hover: setas sempre visiveis */
+@media (hover: none) {
+  .fleetNav {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* Barra segmentada: cada segmento enche-se enquanto a foto esta ativa */
+.fleetProgress {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 14px;
+  display: flex;
+  gap: 6px;
+}
+
+.fleetDot {
+  flex: 1;
+  height: 16px;
+  padding: 6px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.fleetDot::before {
+  content: "";
+  display: block;
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.fleetDotFill {
+  display: block;
+  height: 3px;
+  margin-top: -3px;
+  width: 0;
+  border-radius: 3px;
+  background: #fff;
+}
+
+.fleetDot.done .fleetDotFill {
+  width: 100%;
+}
+
+.fleetDot.active .fleetDotFill {
+  animation-name: fleetProgress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.fleetDot:hover::before {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+@keyframes fleetProgress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fleetCard,
+  .fleetCard::after {
+    transition-duration: 0.3s;
+  }
+  .fleetCard.out {
+    transform: none;
+  }
+  .fleetSlide,
+  .fleetCard.front .fleetSlide {
+    transform: none;
+    transition: none;
+  }
 }
 
 .fleetText {
@@ -1847,10 +2211,11 @@ onUnmounted(() => {
     flex: 1;
   }
   .fleetMedia {
+    --step: 22px;
     flex: 1.15;
   }
-  .fleetImage {
-    height: 400px;
+  .fleetSlider {
+    height: 420px;
   }
   .fleetWatermark {
     width: 560px;
