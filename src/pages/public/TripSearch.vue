@@ -10,6 +10,9 @@ import LogoPD from "../../assets/LogoPD.svg";
 import whatsappIcon from "../../assets/whatsapp.png";
 import gmailIcon from "../../assets/gmail.png";
 import ticketIcon from "../../assets/ticket.png";
+import symbolLima from "../../assets/symbol-lima.svg";
+import flagMz from "../../assets/flag_mz.svg";
+import flagZa from "../../assets/flag_southAfrica.png";
 
 const router = useRouter();
 const bookingStore = usePublicBookingStore();
@@ -51,6 +54,26 @@ function search() {
       ...(selectedDate.value ? { date: selectedDate.value } : {}),
     },
   });
+}
+
+const searchCardRef = ref(null);
+const highlightSearch = ref(false);
+let highlightTimer = null;
+
+// Os CTAs de baixo da pagina levam o cliente ate ao cartao de pesquisa e
+// realcam-no, em vez de pesquisarem as cegas com a rota que estiver selecionada.
+function scrollToSearch() {
+  searchCardRef.value?.scrollIntoView({ behavior: "smooth", block: "center" });
+  highlightSearch.value = false;
+  clearTimeout(highlightTimer);
+  requestAnimationFrame(() => {
+    highlightSearch.value = true;
+    highlightTimer = setTimeout(() => (highlightSearch.value = false), 1600);
+  });
+}
+
+function scrollToSection(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 }
 
 function closeAll() {
@@ -97,7 +120,10 @@ async function carregarRotas() {
     loadingRoutes.value = false;
   }
 }
-onUnmounted(() => document.removeEventListener("click", closeAll));
+onUnmounted(() => {
+  document.removeEventListener("click", closeAll);
+  clearTimeout(highlightTimer);
+});
 </script>
 
 <template>
@@ -115,8 +141,8 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
     </section>
 
     <!-- SEARCH CARD -->
-    <div class="cardWrap">
-      <div class="searchCard">
+    <div ref="searchCardRef" class="cardWrap">
+      <div class="searchCard" :class="{ highlight: highlightSearch }">
         <div class="field">
           <label class="fieldLabel">Rota</label>
           <div
@@ -220,7 +246,7 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
     </div>
 
     <!-- COMO FUNCIONA -->
-    <section class="howSection">
+    <section id="como-funciona" class="howSection">
       <div class="sectionWrap">
         <p class="sectionTag">Simples e rápido</p>
         <h2 class="sectionTitle">Como funciona</h2>
@@ -413,46 +439,60 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
     -->
 
     <!-- A NOSSA FROTA -->
-    <section class="fleetSection">
+    <section id="frota" class="fleetSection">
+      <img :src="symbolLima" alt="" aria-hidden="true" class="fleetWatermark" />
       <div class="fleetContent">
-        <div class="fleetText">
-          <p class="sectionTag">A nossa frota</p>
-          <h2 class="sectionTitle">Mercedes-Benz Sprinter</h2>
-          <p class="fleetDesc">
-            Viajamos num Mercedes-Benz Sprinter de última geração, com 19
-            lugares confortáveis, ar condicionado e bagageira espaçosa.
-            Desenhado para longas distâncias com o máximo de conforto.
-          </p>
-          <ul class="fleetSpecs">
-            <li>
-              <i class="fi fi-rs-check-circle specIcon" /> 19 lugares
-              individuais
-            </li>
-            <li>
-              <i class="fi fi-rs-check-circle specIcon" /> Ar condicionado
-            </li>
-            <li>
-              <i class="fi fi-rs-check-circle specIcon" /> Bagageira ampla
-            </li>
-            <li>
-              <i class="fi fi-rs-check-circle specIcon" /> Revisões regulares
-              certificadas
-            </li>
-          </ul>
-          <button class="fleetBtn" @click="search">Reservar lugar</button>
-        </div>
-        <div class="fleetImageWrap">
+        <figure class="fleetMedia">
+          <span class="fleetLivery" aria-hidden="true" />
           <img
             :src="vanFleet"
-            alt="Carrinha Portador Diário"
+            alt="Carrinha Mercedes-Benz Sprinter da Portador Diário, pintada a roxo e lima, com atrelado de bagagem"
             class="fleetImage"
+            loading="lazy"
           />
+          <figcaption class="fleetCaption">
+            <i class="fi fi-rs-camera" /> Foto real da nossa carrinha
+          </figcaption>
+        </figure>
+
+        <div class="fleetText">
+          <p class="sectionTag">A nossa frota</p>
+          <h2 class="sectionTitle">A carrinha em que vai viajar</h2>
+          <p class="fleetDesc">
+            Fazemos a rota numa Mercedes-Benz Sprinter com as cores da
+            Portador Diário. A bagagem segue num atrelado atrás, por isso o
+            espaço dentro da carrinha fica para os passageiros.
+          </p>
+
+          <dl class="fleetSpecs">
+            <div class="spec">
+              <dt>19</dt>
+              <dd>lugares individuais</dd>
+            </div>
+            <div class="spec">
+              <dt>A/C</dt>
+              <dd>ar condicionado</dd>
+            </div>
+            <div class="spec">
+              <dt>1</dt>
+              <dd>atrelado só para bagagem</dd>
+            </div>
+            <div class="spec">
+              <dt>2×</dt>
+              <dd>partidas por semana em cada sentido</dd>
+            </div>
+          </dl>
+
+          <button class="fleetBtn" @click="scrollToSearch">
+            Reservar lugar
+            <i class="fi fi-rs-arrow-small-up fleetBtnIcon" />
+          </button>
         </div>
       </div>
     </section>
 
     <!-- CONTACTO -->
-    <section class="contactSection">
+    <section id="contacto" class="contactSection">
       <div class="sectionWrap">
         <p class="sectionTag light">Precisa de ajuda?</p>
         <h2 class="sectionTitle light">Fale connosco</h2>
@@ -505,20 +545,35 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
 
     <!-- FOOTER -->
     <footer class="footer">
-      <div class="footerInner">
-        <div class="footerLeft">
+      <div class="footerTop">
+        <div class="footerBrand">
           <img :src="LogoPD" alt="Portador Diário" class="footerLogo" />
           <span class="footerTagline">o seu correio onde estiver</span>
         </div>
-        <div class="footerLinks">
-          <span class="footerLink" @click="search">Reservar</span>
-          <span class="footerLink" @click="openWhatsApp">Contacto</span>
-        </div>
-        <div class="footerRight">
-          <span class="footerCopy"
-            >© {{ new Date().getFullYear() }} Portador Diário</span
-          >
-        </div>
+
+        <nav class="footerNav" aria-label="Rodapé">
+          <button class="footerLink" @click="scrollToSearch">Reservar viagem</button>
+          <button class="footerLink" @click="scrollToSection('como-funciona')">Como funciona</button>
+          <button class="footerLink" @click="scrollToSection('frota')">A nossa frota</button>
+          <button class="footerLink" @click="scrollToSection('contacto')">Contacto</button>
+        </nav>
+
+        <button class="footerContactBtn" @click="openWhatsApp">
+          Contacte-nos
+        </button>
+      </div>
+
+      <div class="footerBottom">
+        <span class="footerCopy">
+          © {{ new Date().getFullYear() }} Portador Diário
+        </span>
+        <span class="footerRoute">
+          <img :src="flagMz" alt="Moçambique" class="footerFlag" />
+          Maputo
+          <span class="footerRouteArrow">⇄</span>
+          Johannesburg
+          <img :src="flagZa" alt="África do Sul" class="footerFlag" />
+        </span>
       </div>
     </footer>
 
@@ -1174,19 +1229,89 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
   line-height: 1.5;
 }
 
+/* O header publico e sticky: as ancoras param abaixo dele */
+#como-funciona,
+#frota,
+#contacto {
+  scroll-margin-top: 72px;
+}
+
 /* ── FROTA ── */
 .fleetSection {
-  /* background: #fff; */
-  background: #0d0d2b;
+  position: relative;
+  overflow: hidden;
+  background: #fff;
   padding: 80px 24px;
 }
 
+/* Simbolo da marca em grande, quase invisivel, a dar textura ao fundo */
+.fleetWatermark {
+  position: absolute;
+  right: -120px;
+  bottom: -140px;
+  width: 420px;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
 .fleetContent {
-  max-width: 960px;
+  position: relative;
+  max-width: 1080px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 48px;
+}
+
+.fleetMedia {
+  position: relative;
+  margin: 0;
+}
+
+/* Faixas roxo/lima atras da foto, tiradas da pintura da propria carrinha */
+.fleetLivery {
+  position: absolute;
+  inset: 18px -14px -14px 18px;
+  border-radius: 20px;
+  background: linear-gradient(
+    115deg,
+    #922877 0%,
+    #922877 58%,
+    #c5d22d 58%,
+    #c5d22d 72%,
+    #922877 72%
+  );
+}
+
+.fleetImage {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  object-position: 40% 60%;
+  border-radius: 20px;
+  box-shadow: 0 18px 40px rgba(13, 13, 43, 0.18);
+}
+
+.fleetCaption {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(13, 13, 43, 0.72);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.fleetCaption .fi {
+  position: relative;
+  top: 1px;
+  color: #c5d22d;
 }
 
 .fleetText {
@@ -1198,64 +1323,101 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
   font-size: 15px;
   color: #666;
   line-height: 1.65;
-  margin-bottom: 24px;
+  max-width: 460px;
+  margin-bottom: 28px;
 }
 
+/* Ficha tecnica: numero grande + legenda, separados por linhas finas */
 .fleetSpecs {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  border-top: 1px solid #eee;
   margin-bottom: 32px;
 }
 
-.fleetSpecs li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  color: #333;
-  font-weight: 500;
+.spec {
+  padding: 18px 16px 18px 0;
+  border-bottom: 1px solid #eee;
 }
 
-.specIcon {
+.spec:nth-child(odd) {
+  border-right: 1px solid #eee;
+}
+
+.spec:nth-child(even) {
+  padding-left: 20px;
+}
+
+.spec dt {
+  font-size: 30px;
+  font-weight: 700;
   color: #922877;
-  font-size: 15px;
-  flex-shrink: 0;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.spec dd {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.4;
 }
 
 .fleetBtn {
   display: inline-flex;
   align-items: center;
-  height: 48px;
-  padding: 0 28px;
+  gap: 8px;
+  align-self: flex-start;
   background: #922877;
   color: #fff;
   border: none;
-  border-radius: 50px;
+  border-radius: 8px;
+  padding: 12px 22px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s;
-  font-family: Helvetica, sans-serif;
-  align-self: flex-start;
 }
 
 .fleetBtn:hover {
-  opacity: 0.9;
+  opacity: 0.88;
 }
 
-.fleetImageWrap {
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
+.fleetBtnIcon {
+  position: relative;
+  top: 2px;
+  transition: transform 0.2s;
 }
 
-.fleetImage {
-  width: 100%;
-  height: 280px;
-  object-fit: cover;
-  display: block;
+.fleetBtn:hover .fleetBtnIcon {
+  transform: translateY(-3px);
+}
+
+/* Realce do cartao de pesquisa quando um CTA de baixo leva o cliente la */
+.searchCard {
+  transition: box-shadow 0.3s;
+}
+
+.searchCard.highlight {
+  animation: cardHighlight 1.6s ease-out;
+}
+
+@keyframes cardHighlight {
+  0% {
+    box-shadow:
+      0 12px 48px rgba(0, 0, 0, 0.18),
+      0 0 0 0 rgba(146, 40, 119, 0.5);
+  }
+  40% {
+    box-shadow:
+      0 12px 48px rgba(0, 0, 0, 0.18),
+      0 0 0 8px rgba(146, 40, 119, 0.25);
+  }
+  100% {
+    box-shadow:
+      0 12px 48px rgba(0, 0, 0, 0.18),
+      0 0 0 14px rgba(146, 40, 119, 0);
+  }
 }
 
 /* ── CONTACTO ── */
@@ -1395,59 +1557,111 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
   color: rgba(255, 255, 255, 0.4);
 }
 
-/* ── FOOTER ── */
+/* ── FOOTER ── alinhado com o PublicHeader: fundo branco, linha #EEE, logo a cores */
 .footer {
-  background: #0d0d2b;
-  padding: 28px 24px;
+  background: #fff;
+  border-top: 1px solid #eeeeee;
+  padding: 0 24px;
 }
 
-.footerInner {
-  max-width: 960px;
-  margin: 0 auto;
+.footerTop {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
+  padding: 32px 0 24px;
   text-align: center;
 }
 
-.footerLeft {
+.footerBrand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .footerLogo {
-  height: 32px;
+  height: 36px;
   width: auto;
-  filter: brightness(0) invert(1);
 }
 
 .footerTagline {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #999;
 }
 
-.footerLinks {
+.footerNav {
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 20px;
 }
 
 .footerLink {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font-size: 14px;
+  color: #555;
   cursor: pointer;
   transition: color 0.15s;
 }
 
 .footerLink:hover {
+  color: #922877;
+}
+
+.footerContactBtn {
+  background: #922877;
   color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.footerContactBtn:hover {
+  opacity: 0.88;
+}
+
+.footerBottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid #eeeeee;
+  /* espaco extra para o botao flutuante do WhatsApp nao tapar o texto */
+  padding: 16px 0 88px;
 }
 
 .footerCopy {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
+  color: #999;
+}
+
+.footerRoute {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+}
+
+.footerFlag {
+  width: 18px;
+  height: 12px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.footerRouteArrow {
+  color: #922877;
 }
 
 /* ── WHATSAPP FLUTUANTE ── */
@@ -1528,6 +1742,7 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .searchCard.highlight,
   .waFabBtn::before {
     animation: none;
   }
@@ -1626,16 +1841,21 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
   .fleetContent {
     flex-direction: row;
     align-items: center;
-    gap: 60px;
+    gap: 64px;
   }
   .fleetText {
     flex: 1;
   }
-  .fleetImageWrap {
-    flex: 1;
+  .fleetMedia {
+    flex: 1.15;
   }
   .fleetImage {
-    height: 360px;
+    height: 400px;
+  }
+  .fleetWatermark {
+    width: 560px;
+    right: -160px;
+    bottom: -180px;
   }
 
   .contactCards {
@@ -1650,14 +1870,17 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
     display: none;
   }
 
-  .footerInner {
+  .footerTop {
     flex-direction: row;
     justify-content: space-between;
     text-align: left;
   }
-
-  .footerLeft {
+  .footerBrand {
     align-items: flex-start;
+  }
+  .footerBottom {
+    flex-direction: row;
+    justify-content: space-between;
   }
 }
 
@@ -1693,6 +1916,18 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
 
   .featuresInner {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  .footer {
+    padding: 0 40px;
+  }
+  .footerLogo {
+    height: 40px;
+  }
+  /* No desktop o botao flutuante fica ao lado do texto, nao por cima */
+  .footerBottom {
+    padding-bottom: 16px;
+    padding-right: 100px;
   }
 
   .waFab {
