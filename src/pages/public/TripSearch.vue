@@ -18,6 +18,10 @@ import LogoPD from "../../assets/LogoPD.svg";
 import whatsappIcon from "../../assets/whatsapp.png";
 import gmailIcon from "../../assets/gmail.png";
 import ticketIcon from "../../assets/ticket.png";
+import shieldIcon from "../../assets/shield.png";
+import supportIcon from "../../assets/customer-suport.png";
+import mpesaIcon from "../../assets/mpesa.png";
+import cardIcon from "../../assets/card.png";
 import symbolLima from "../../assets/symbol-lima.svg";
 import flagMz from "../../assets/flag_mz.svg";
 import flagZa from "../../assets/flag_southAfrica.png";
@@ -136,6 +140,11 @@ function onVisibilityChange() {
   pageHidden.value = document.hidden;
 }
 
+// Os cartoes de garantias entram em cascata quando aparecem no ecra
+const trustRef = ref(null);
+const trustVisible = ref(false);
+let trustObserver = null;
+
 const searchCardRef = ref(null);
 const highlightSearch = ref(false);
 let highlightTimer = null;
@@ -187,6 +196,16 @@ onMounted(async () => {
   );
   if (fleetMediaRef.value) fleetObserver.observe(fleetMediaRef.value);
 
+  trustObserver = new IntersectionObserver(
+    ([entry]) => {
+      if (!entry.isIntersecting) return;
+      trustVisible.value = true;
+      trustObserver.disconnect();
+    },
+    { threshold: 0.2 },
+  );
+  if (trustRef.value) trustObserver.observe(trustRef.value);
+
   bookingStore.startNewFlow();
   await carregarRotas();
 });
@@ -213,6 +232,7 @@ onUnmounted(() => {
   document.removeEventListener("click", closeAll);
   clearTimeout(highlightTimer);
   fleetObserver?.disconnect();
+  trustObserver?.disconnect();
   document.removeEventListener("visibilitychange", onVisibilityChange);
 });
 </script>
@@ -312,27 +332,51 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- TRUST BADGES -->
-    <div class="trust">
+    <!-- GARANTIAS -->
+    <div ref="trustRef" class="trust" :class="{ visible: trustVisible }">
       <div class="trustInner">
-        <div class="trustItem">
-          <span class="trustIconWrap brand">
+        <article class="trustCard whatsapp">
+          <span class="trustIconWrap">
             <img :src="whatsappIcon" alt="" class="trustImg" />
           </span>
-          <span class="trustLabel">Bilhete por <strong>WhatsApp</strong></span>
-        </div>
-        <div class="trustItem">
+          <div class="trustBody">
+            <h3 class="trustTitle">Bilhete no WhatsApp</h3>
+            <p class="trustText">
+              Recebe o bilhete no telemóvel logo depois de confirmar o
+              pagamento.
+            </p>
+          </div>
+        </article>
+
+        <article class="trustCard secure">
           <span class="trustIconWrap">
-            <i class="fi fi-rs-lock trustIcon" />
+            <img :src="shieldIcon" alt="" class="trustImg" />
           </span>
-          <span class="trustLabel">Pagamento <strong>seguro</strong></span>
-        </div>
-        <div class="trustItem">
+          <div class="trustBody">
+            <h3 class="trustTitle">Pagamento seguro</h3>
+            <p class="trustText">Pague por M-Pesa ou cartão Visa e Mastercard.</p>
+            <div class="trustMethods">
+              <img :src="mpesaIcon" alt="M-Pesa" class="trustMethod" />
+              <img :src="cardIcon" alt="Cartão" class="trustMethod" />
+            </div>
+          </div>
+        </article>
+
+        <article class="trustCard support">
           <span class="trustIconWrap">
-            <i class="fi fi-rs-headset trustIcon" />
+            <img :src="supportIcon" alt="" class="trustImg" />
           </span>
-          <span class="trustLabel">Suporte <strong>24h</strong></span>
-        </div>
+          <div class="trustBody">
+            <h3 class="trustTitle">Suporte 24h</h3>
+            <p class="trustText">
+              Por WhatsApp ou telefone, antes e durante a viagem.
+            </p>
+            <button class="trustLink" @click="scrollToSection('contacto')">
+              Falar connosco
+              <i class="fi fi-rs-arrow-small-right" />
+            </button>
+          </div>
+        </article>
       </div>
     </div>
 
@@ -987,76 +1031,279 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-/* ── TRUST ── */
+/* ── GARANTIAS ──
+   Mesmo vocabulario dos outros cartoes da pagina (fundo branco, borda
+   #f0e8ed, raio 16px). Cada cartao tem a cor do seu icone. */
 .trust {
-  padding: 40px 24px 32px;
+  padding: 40px 20px 48px;
 }
 
 .trustInner {
   max-width: 520px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
-.trustItem {
+.trustCard {
+  --accent: #922877;
+  --accent-soft: rgba(146, 40, 119, 0.1);
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 16px 8px;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
   background: #fff;
   border: 1px solid #f0e8ed;
-  border-radius: 14px;
+  border-radius: 16px;
+  overflow: hidden;
+  /* entrada: escondidos ate a secção aparecer, depois sobem em cascata */
+  opacity: 0;
   transition:
-    transform 0.2s,
-    box-shadow 0.2s;
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
 }
 
-.trustItem:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 24px rgba(146, 40, 119, 0.1);
+.trustCard.whatsapp {
+  --accent: #25d366;
+  --accent-soft: rgba(37, 211, 102, 0.12);
+}
+
+.trustCard.secure {
+  --accent: #1fcf85;
+  --accent-soft: rgba(31, 207, 133, 0.12);
+}
+
+.trustCard.support {
+  --accent: #f5a623;
+  --accent-soft: rgba(245, 166, 35, 0.14);
+}
+
+/* "backwards" so cobre o atraso inicial; depois o hover controla o transform */
+.trust.visible .trustCard {
+  opacity: 1;
+  animation: trustIn 0.6s ease backwards;
+}
+
+.trust.visible .trustCard:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.trust.visible .trustCard:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+/* Linha de cor no topo que se estende no hover */
+.trustCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 36px;
+  background: var(--accent);
+  border-radius: 0 0 3px 0;
+  transition: width 0.4s ease;
+}
+
+.trust.visible .trustCard:hover {
+  transform: translateY(-4px);
+  border-color: transparent;
+  box-shadow: 0 14px 32px rgba(13, 13, 43, 0.08);
+}
+
+.trustCard:hover::before {
+  width: 100%;
 }
 
 .trustIconWrap {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(146, 40, 119, 0.08);
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: var(--accent-soft);
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.trustIconWrap.brand {
-  background: rgba(37, 211, 102, 0.1);
+  overflow: hidden;
 }
 
 .trustImg {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   object-fit: contain;
 }
 
-.trustIcon {
-  font-size: 20px;
+.trustBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.trustTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0d0d2b;
+}
+
+.trustText {
+  font-size: 13px;
+  color: #777;
+  line-height: 1.5;
+}
+
+.trustMethods {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.trustMethod {
+  height: 28px;
+  width: auto;
+  padding: 4px 8px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  background: #fff;
+  object-fit: contain;
+}
+
+.trustLink {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: none;
   color: #922877;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.trustLink .fi {
   position: relative;
   top: 2px;
+  transition: transform 0.2s;
 }
 
-.trustLabel {
-  font-size: 12px;
-  color: #888;
-  text-align: center;
-  line-height: 1.4;
+.trustLink:hover .fi {
+  transform: translateX(3px);
 }
 
-.trustLabel strong {
-  display: block;
-  color: #0d0d2b;
-  font-weight: 700;
+/* Cada icone tem um gesto proprio: corre uma vez quando o cartao aparece
+   (tambem no telemovel, onde nao ha hover) e de novo no hover. */
+.trust.visible .whatsapp .trustImg {
+  animation: trustWiggle 0.7s ease 0.5s;
+}
+.trust.visible .whatsapp:hover .trustImg {
+  animation: trustWiggleHover 0.7s ease;
+}
+
+.trust.visible .secure .trustImg {
+  animation: trustPop 0.6s ease 0.65s;
+}
+.trust.visible .secure:hover .trustImg {
+  animation: trustPopHover 0.6s ease;
+}
+
+/* brilho que atravessa o escudo */
+.secure .trustIconWrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent,
+    rgba(255, 255, 255, 0.85),
+    transparent
+  );
+  transform: skewX(-15deg);
+}
+.trust.visible .secure .trustIconWrap::after {
+  animation: trustShine 0.9s ease 0.8s;
+}
+.trust.visible .secure:hover .trustIconWrap::after {
+  animation: trustShineHover 0.9s ease;
+}
+
+.trust.visible .support .trustImg {
+  animation: trustRing 0.8s ease 0.8s;
+}
+.trust.visible .support:hover .trustImg {
+  animation: trustRingHover 0.8s ease;
+}
+
+@keyframes trustIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes trustWiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-10deg); }
+  50% { transform: rotate(8deg); }
+  75% { transform: rotate(-4deg); }
+}
+
+@keyframes trustWiggleHover {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-10deg); }
+  50% { transform: rotate(8deg); }
+  75% { transform: rotate(-4deg); }
+}
+
+@keyframes trustPop {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.15); }
+  70% { transform: scale(0.96); }
+}
+
+@keyframes trustPopHover {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.15); }
+  70% { transform: scale(0.96); }
+}
+
+@keyframes trustShine {
+  from { left: -60%; }
+  to { left: 130%; }
+}
+
+@keyframes trustShineHover {
+  from { left: -60%; }
+  to { left: 130%; }
+}
+
+@keyframes trustRing {
+  0%, 100% { transform: rotate(0); }
+  15%, 45%, 75% { transform: rotate(-9deg); }
+  30%, 60% { transform: rotate(9deg); }
+}
+
+@keyframes trustRingHover {
+  0%, 100% { transform: rotate(0); }
+  15%, 45%, 75% { transform: rotate(-9deg); }
+  30%, 60% { transform: rotate(9deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trust.visible .trustCard {
+    animation: none;
+  }
+  .trust.visible .trustImg,
+  .trust.visible .trustIconWrap::after {
+    animation: none !important;
+  }
 }
 
 /* ── SECTION COMMONS ── */
@@ -2047,8 +2294,17 @@ onUnmounted(() => {
     max-width: 560px;
     margin-top: -90px;
   }
+  .trust {
+    padding: 48px 24px 56px;
+  }
   .trustInner {
     max-width: 760px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .trustCard {
+    flex-direction: column;
+    padding: 24px 20px;
   }
 
   .steps {
