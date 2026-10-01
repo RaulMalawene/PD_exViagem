@@ -19,8 +19,9 @@ import whatsappIcon from "../../assets/whatsapp.png";
 import gmailIcon from "../../assets/gmail.png";
 import ticketIcon from "../../assets/ticket.png";
 import shieldIcon from "../../assets/shield.png";
-import supportIcon from "../../assets/customer-suport.png";
+import supportIcon from "../../assets/customer-suport-azul.png";
 import mpesaIcon from "../../assets/mpesa.png";
+import emolaIcon from "../../assets/emola.png";
 import cardIcon from "../../assets/card.png";
 import symbolLima from "../../assets/symbol-lima.svg";
 import flagMz from "../../assets/flag_mz.svg";
@@ -354,9 +355,12 @@ onUnmounted(() => {
           </span>
           <div class="trustBody">
             <h3 class="trustTitle">Pagamento seguro</h3>
-            <p class="trustText">Pague por M-Pesa ou cartão Visa e Mastercard.</p>
+            <p class="trustText">
+              Pague por M-Pesa, e-Mola ou cartão Visa e Mastercard.
+            </p>
             <div class="trustMethods">
               <img :src="mpesaIcon" alt="M-Pesa" class="trustMethod" />
+              <img :src="emolaIcon" alt="e-Mola" class="trustMethod" />
               <img :src="cardIcon" alt="Cartão" class="trustMethod" />
             </div>
           </div>
@@ -1077,8 +1081,8 @@ onUnmounted(() => {
 }
 
 .trustCard.support {
-  --accent: #f5a623;
-  --accent-soft: rgba(245, 166, 35, 0.14);
+  --accent: #3a9ad9;
+  --accent-soft: rgba(58, 154, 217, 0.12);
 }
 
 /* "backwards" so cobre o atraso inicial; depois o hover controla o transform */
