@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { usePublicBookingStore } from "../../stores/publicBookingStore";
 import { parseApiError } from "../../utils/parseApiError";
@@ -114,11 +114,14 @@ function cardPosition(i) {
   return "hidden";
 }
 
-// O relogio da galeria e a propria barra de progresso (animacao CSS): quando
-// termina, passa a foto seguinte. Assim pausar/retomar nunca dessincroniza.
-function onFleetProgressEnd(i) {
-  if (i === fleetIndex.value) goToPhoto(i + 1);
-}
+// Avanca sozinho; cada troca (automatica ou manual) reinicia a contagem
+let fleetTimer = null;
+watch([fleetIndex, fleetRunning], () => {
+  clearTimeout(fleetTimer);
+  if (fleetRunning.value) {
+    fleetTimer = setTimeout(() => goToPhoto(fleetIndex.value + 1), FLEET_INTERVAL);
+  }
+});
 
 function onFleetTouchStart(e) {
   touchStartX = e.touches[0].clientX;
@@ -143,6 +146,7 @@ function scrollToSearch() {
   searchCardRef.value?.scrollIntoView({ behavior: "smooth", block: "center" });
   highlightSearch.value = false;
   clearTimeout(highlightTimer);
+  clearTimeout(fleetTimer);
   requestAnimationFrame(() => {
     highlightSearch.value = true;
     highlightTimer = setTimeout(() => (highlightSearch.value = false), 1600);
@@ -565,8 +569,6 @@ onUnmounted(() => {
             </div>
 
             <div class="fleetControls">
-              <div class="fleetShade" aria-hidden="true" />
-
               <button
                 class="fleetNav prev"
                 aria-label="Foto anterior"
@@ -581,27 +583,6 @@ onUnmounted(() => {
               >
                 <i class="fi fi-rs-angle-small-right" />
               </button>
-
-              <div class="fleetProgress">
-                <button
-                  v-for="(photo, i) in fleetPhotos"
-                  :key="photo.src"
-                  class="fleetDot"
-                  :class="{ active: i === fleetIndex, done: i < fleetIndex }"
-                  :aria-label="`Ver foto ${i + 1} de ${fleetPhotos.length}`"
-                  :aria-current="i === fleetIndex"
-                  @click="goToPhoto(i)"
-                >
-                  <span
-                    class="fleetDotFill"
-                    :style="{
-                      animationDuration: `${FLEET_INTERVAL}ms`,
-                      animationPlayState: fleetRunning ? 'running' : 'paused',
-                    }"
-                    @animationend="onFleetProgressEnd(i)"
-                  />
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -1538,15 +1519,6 @@ onUnmounted(() => {
 }
 
 
-/* Sombra so em baixo, para os controlos se lerem sobre qualquer foto */
-.fleetShade {
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 90px;
-  background: linear-gradient(to top, rgba(13, 13, 43, 0.55), transparent);
-  pointer-events: none;
-}
-
 .fleetNav {
   position: absolute;
   top: 50%;
@@ -1601,65 +1573,6 @@ onUnmounted(() => {
     transform: translateY(-50%) scale(1);
     width: 34px;
     height: 34px;
-  }
-}
-
-/* Barra segmentada: cada segmento enche-se enquanto a foto esta ativa */
-.fleetProgress {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 14px;
-  display: flex;
-  gap: 6px;
-}
-
-.fleetDot {
-  flex: 1;
-  height: 16px;
-  padding: 6px 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-}
-
-.fleetDot::before {
-  content: "";
-  display: block;
-  height: 3px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.35);
-}
-
-.fleetDotFill {
-  display: block;
-  height: 3px;
-  margin-top: -3px;
-  width: 0;
-  border-radius: 3px;
-  background: #fff;
-}
-
-.fleetDot.done .fleetDotFill {
-  width: 100%;
-}
-
-.fleetDot.active .fleetDotFill {
-  animation-name: fleetProgress;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
-}
-
-.fleetDot:hover::before {
-  background: rgba(255, 255, 255, 0.6);
-}
-
-@keyframes fleetProgress {
-  from {
-    width: 0;
-  }
-  to {
-    width: 100%;
   }
 }
 
