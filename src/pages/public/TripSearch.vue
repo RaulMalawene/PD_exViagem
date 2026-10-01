@@ -141,10 +141,26 @@ function onVisibilityChange() {
   pageHidden.value = document.hidden;
 }
 
-// Os cartoes de garantias entram em cascata quando aparecem no ecra
+// Secções que animam uma vez quando aparecem no ecra
 const trustRef = ref(null);
 const trustVisible = ref(false);
-let trustObserver = null;
+const howRef = ref(null);
+const howVisible = ref(false);
+const revealObservers = [];
+
+function revealOnce(el, flag) {
+  if (!el) return;
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (!entry.isIntersecting) return;
+      flag.value = true;
+      observer.disconnect();
+    },
+    { threshold: 0.2 },
+  );
+  observer.observe(el);
+  revealObservers.push(observer);
+}
 
 const searchCardRef = ref(null);
 const highlightSearch = ref(false);
@@ -197,15 +213,8 @@ onMounted(async () => {
   );
   if (fleetMediaRef.value) fleetObserver.observe(fleetMediaRef.value);
 
-  trustObserver = new IntersectionObserver(
-    ([entry]) => {
-      if (!entry.isIntersecting) return;
-      trustVisible.value = true;
-      trustObserver.disconnect();
-    },
-    { threshold: 0.2 },
-  );
-  if (trustRef.value) trustObserver.observe(trustRef.value);
+  revealOnce(trustRef.value, trustVisible);
+  revealOnce(howRef.value, howVisible);
 
   bookingStore.startNewFlow();
   await carregarRotas();
@@ -233,7 +242,7 @@ onUnmounted(() => {
   document.removeEventListener("click", closeAll);
   clearTimeout(highlightTimer);
   fleetObserver?.disconnect();
-  trustObserver?.disconnect();
+  revealObservers.forEach((o) => o.disconnect());
   document.removeEventListener("visibilitychange", onVisibilityChange);
 });
 </script>
@@ -385,50 +394,80 @@ onUnmounted(() => {
     </div>
 
     <!-- COMO FUNCIONA -->
-    <section id="como-funciona" class="howSection">
+    <section
+      id="como-funciona"
+      ref="howRef"
+      class="howSection"
+      :class="{ visible: howVisible }"
+    >
       <div class="sectionWrap">
         <p class="sectionTag">Simples e rápido</p>
         <h2 class="sectionTitle">Como funciona</h2>
         <p class="sectionDesc">
-          Reserve o seu lugar em menos de 5 minutos, sem filas, sem
-          complicações.
+          Reserve o seu lugar em menos de 5 minutos, sem filas e sem sair de
+          casa.
         </p>
-        <div class="steps">
-          <div class="step">
-            <div class="stepNum">1</div>
-            <div class="stepIconWrap">
+
+        <ol class="steps">
+          <!-- estrada que liga os passos; o autocarro percorre-a uma vez -->
+          <li class="howRoad" aria-hidden="true">
+            <span class="howBus"><i class="fi fi-rs-bus" /></span>
+          </li>
+
+          <li class="step">
+            <span class="stepNode">
               <i class="fi fi-rs-search stepIcon" />
+            </span>
+            <div class="stepBody">
+              <span class="stepNum">Passo 1</span>
+              <h3 class="stepTitle">Pesquise</h3>
+              <p class="stepDesc">
+                Escolha a rota e a data. Vê logo os lugares que ainda estão
+                livres.
+              </p>
+              <button class="stepLink" @click="scrollToSearch">
+                Pesquisar agora
+                <i class="fi fi-rs-arrow-small-up" />
+              </button>
             </div>
-            <h3 class="stepTitle">Pesquise</h3>
-            <p class="stepDesc">
-              Escolha a sua rota e a data pretendida. Veja os lugares
-              disponíveis em tempo real.
-            </p>
-          </div>
-          <div class="stepConnector" />
-          <div class="step">
-            <div class="stepNum">2</div>
-            <div class="stepIconWrap ticket">
+          </li>
+
+          <li class="step">
+            <span class="stepNode ticket">
               <img :src="ticketIcon" alt="" class="stepImg" />
+            </span>
+            <div class="stepBody">
+              <span class="stepNum">Passo 2</span>
+              <h3 class="stepTitle">Reserve</h3>
+              <p class="stepDesc">
+                Escolha o assento, preencha os dados dos passageiros e pague.
+              </p>
+              <div class="stepMethods">
+                <img :src="mpesaIcon" alt="M-Pesa" />
+                <img :src="emolaIcon" alt="e-Mola" />
+                <img :src="cardIcon" alt="Cartão" />
+              </div>
             </div>
-            <h3 class="stepTitle">Reserve</h3>
-            <p class="stepDesc">
-              Seleccione o seu assento, preencha os dados e confirme o
-              pagamento.
-            </p>
-          </div>
-          <div class="stepConnector" />
-          <div class="step">
-            <div class="stepNum">3</div>
-            <div class="stepIconWrap">
+          </li>
+
+          <li class="step">
+            <span class="stepNode">
               <i class="fi fi-rs-bus stepIcon" />
+            </span>
+            <div class="stepBody">
+              <span class="stepNum">Passo 3</span>
+              <h3 class="stepTitle">Viaje</h3>
+              <p class="stepDesc">
+                Recebe o bilhete no WhatsApp. No dia, apresente-se na sede antes
+                da hora de partida.
+              </p>
+              <button class="stepLink" @click="scrollToSection('frota')">
+                Conhecer a frota
+                <i class="fi fi-rs-arrow-small-right" />
+              </button>
             </div>
-            <h3 class="stepTitle">Viaje</h3>
-            <p class="stepDesc">
-              Receba o bilhete no WhatsApp e apareça na sede na hora da partida.
-            </p>
-          </div>
-        </div>
+          </li>
+        </ol>
       </div>
     </section>
 
@@ -1356,64 +1395,110 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.75);
 }
 
-/* ── COMO FUNCIONA ── */
+/* ── COMO FUNCIONA ──
+   Telemovel: linha do tempo vertical (estrada a esquerda, cartoes a direita).
+   Tablet/desktop: tres colunas ligadas por uma estrada horizontal que um
+   autocarro percorre uma vez quando a secção aparece. */
 .howSection {
   background: #fff;
-  padding: 80px 0;
+  padding: 64px 0;
 }
 
 .steps {
-  display: flex;
-  align-items: flex-start;
-  gap: 0;
-  flex-direction: column;
+  position: relative;
+  list-style: none;
+  display: grid;
+  gap: 16px;
 }
 
 .step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 12px;
-  padding: 24px;
-  flex: 1;
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 16px;
+  align-items: start;
+  opacity: 0;
 }
 
-.stepNum {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(146, 40, 119, 0.1);
-  color: #922877;
-  font-size: 13px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.howSection.visible .step {
+  opacity: 1;
+  animation: howIn 1.1s ease backwards;
 }
 
-.stepIconWrap {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: rgba(146, 40, 119, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.howSection.visible .step:nth-child(3) {
+  animation-delay: 0.35s;
 }
 
-/* O bilhete usa um gradiente azul→roxo; o fundo acompanha-o */
-.stepIconWrap.ticket {
-  background: linear-gradient(
-    135deg,
-    rgba(125, 196, 255, 0.18),
-    rgba(196, 120, 240, 0.2)
+.howSection.visible .step:nth-child(4) {
+  animation-delay: 0.7s;
+}
+
+/* Troco tracejado entre um passo e o seguinte (so no telemovel) */
+.step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 27px;
+  top: 64px;
+  bottom: -12px;
+  width: 2px;
+  background: repeating-linear-gradient(
+    to bottom,
+    #dcc4d5 0 6px,
+    transparent 6px 12px
   );
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 1.2s ease 0.3s;
+}
+
+.howSection.visible .step::before {
+  transform: scaleY(1);
+}
+
+.howSection.visible .step:nth-child(3)::before {
+  transition-delay: 1s;
+}
+
+.stepNode {
+  position: relative;
+  z-index: 1;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #f0e8ed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    border-color 0.4s,
+    box-shadow 0.4s;
+}
+
+.stepNode.ticket {
+  background: linear-gradient(135deg, #f1f8ff, #f8efff);
+}
+
+.step:hover .stepNode {
+  border-color: #922877;
+  box-shadow: 0 0 0 6px rgba(146, 40, 119, 0.08);
+}
+
+.stepIcon {
+  font-size: 22px;
+  color: #922877;
+  position: relative;
+  top: 2px;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.step:hover .stepIcon {
+  transform: translateY(-2px) scale(1.12);
 }
 
 .stepImg {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   object-fit: contain;
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -1422,11 +1507,33 @@ onUnmounted(() => {
   transform: rotate(-12deg) scale(1.12);
 }
 
-.stepIcon {
-  font-size: 26px;
+/* Mesmo cartao das garantias e do contacto */
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid #f0e8ed;
+  border-radius: 16px;
+  transition:
+    transform 0.4s ease,
+    box-shadow 0.4s ease,
+    border-color 0.4s ease;
+}
+
+.step:hover .stepBody {
+  transform: translateY(-3px);
+  border-color: transparent;
+  box-shadow: 0 14px 32px rgba(13, 13, 43, 0.08);
+}
+
+.stepNum {
+  font-size: 11px;
+  font-weight: 700;
   color: #922877;
-  position: relative;
-  top: 1px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 .stepTitle {
@@ -1437,16 +1544,89 @@ onUnmounted(() => {
 
 .stepDesc {
   font-size: 14px;
-  color: #888;
+  color: #777;
   line-height: 1.55;
-  max-width: 220px;
 }
 
-.stepConnector {
-  width: 2px;
-  height: 32px;
-  background: #eeeeee;
-  margin: 0 auto;
+.stepLink {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #922877;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stepLink .fi {
+  position: relative;
+  top: 2px;
+  transition: transform 0.2s;
+}
+
+.stepLink:hover .fi-rs-arrow-small-right {
+  transform: translateX(3px);
+}
+
+.stepLink:hover .fi-rs-arrow-small-up {
+  transform: translateY(-3px);
+}
+
+.stepMethods {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.stepMethods img {
+  height: 26px;
+  width: auto;
+  padding: 4px 8px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  background: #fff;
+  object-fit: contain;
+}
+
+/* Estrada horizontal: so existe a partir do tablet */
+.howRoad {
+  display: none;
+}
+
+@keyframes howIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes howBusDrive {
+  from {
+    left: 0;
+  }
+  to {
+    left: calc(100% - 64px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .howSection.visible .step,
+  .howSection.visible .howBus {
+    animation: none;
+  }
+  .step::before,
+  .howRoad::before {
+    transition: none;
+  }
 }
 
 /* ── A NOSSA ROTA ── */
@@ -2311,16 +2491,73 @@ onUnmounted(() => {
     padding: 24px 20px;
   }
 
+  .howSection {
+    padding: 80px 0;
+  }
   .steps {
-    flex-direction: row;
-    align-items: flex-start;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .step {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .step:not(:last-child)::before {
+    display: none;
   }
 
-  .stepConnector {
-    width: 60px;
+  /* Vai do centro do 1.º no ao centro do 3.º (colunas iguais, gap 24px) */
+  .howRoad {
+    display: block;
+    position: absolute;
+    top: 27px;
+    left: 28px;
+    right: calc((100% - 48px) / 3 - 28px);
     height: 2px;
-    margin: 40px 0 0 0;
-    flex-shrink: 0;
+  }
+  .howRoad::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to right,
+      #dcc4d5 0 8px,
+      transparent 8px 16px
+    );
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 2s ease 0.3s;
+  }
+  .howSection.visible .howRoad::before {
+    transform: scaleX(1);
+  }
+
+  .howBus {
+    position: absolute;
+    top: -13px;
+    left: 0;
+    z-index: 2;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #922877;
+    color: #fff;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(146, 40, 119, 0.35);
+    opacity: 0;
+  }
+  .howBus .fi {
+    position: relative;
+    top: 2px;
+  }
+  /* o autocarro sai do passo 1 e para mesmo antes do passo 3 */
+  .howSection.visible .howBus {
+    opacity: 1;
+    left: calc(100% - 64px);
+    animation: howBusDrive 4.5s cubic-bezier(0.45, 0, 0.25, 1) 1s backwards;
   }
 
   /* rota horizontal */
