@@ -24,6 +24,7 @@ import mpesaIcon from "../../assets/mpesa.png";
 import emolaIcon from "../../assets/emola.png";
 import cardIcon from "../../assets/card.png";
 import symbolLima from "../../assets/symbol-lima.svg";
+import symbolWhite from "../../assets/symbol-white.svg";
 import flagMz from "../../assets/flag_mz.svg";
 import flagZa from "../../assets/flag_southAfrica.png";
 
@@ -146,6 +147,8 @@ const trustRef = ref(null);
 const trustVisible = ref(false);
 const howRef = ref(null);
 const howVisible = ref(false);
+const contactRef = ref(null);
+const contactVisible = ref(false);
 const revealObservers = [];
 
 function revealOnce(el, flag) {
@@ -194,9 +197,33 @@ const whatsappUrl =
     "Olá, gostaria de ter mais informações sobre as viagens da Portador Diário.",
   );
 
-function openWhatsApp() {
-  window.open(whatsappUrl, "_blank");
-}
+const contactChannels = [
+  {
+    key: "whatsapp",
+    label: "WhatsApp",
+    value: "+258 86 205 1706",
+    action: "Iniciar conversa",
+    href: whatsappUrl,
+    img: whatsappIcon,
+    external: true,
+  },
+  {
+    key: "email",
+    label: "Email",
+    value: "info@portadordiario.co.mz",
+    action: "Enviar email",
+    href: "mailto:info@portadordiario.co.mz",
+    img: gmailIcon,
+  },
+  {
+    key: "phone",
+    label: "Telefone",
+    value: "+258 82 120 8151",
+    action: "Ligar",
+    href: "tel:+258821208151",
+    icon: "fi-rs-phone-call",
+  },
+];
 
 onMounted(async () => {
   document.addEventListener("click", closeAll);
@@ -215,6 +242,7 @@ onMounted(async () => {
 
   revealOnce(trustRef.value, trustVisible);
   revealOnce(howRef.value, howVisible);
+  revealOnce(contactRef.value, contactVisible);
 
   bookingStore.startNewFlow();
   await carregarRotas();
@@ -710,105 +738,107 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- CONTACTO -->
-    <section id="contacto" class="contactSection">
-      <div class="sectionWrap">
-        <p class="sectionTag light">Precisa de ajuda?</p>
-        <h2 class="sectionTitle light">Fale connosco</h2>
-        <p class="sectionDesc light">
-          A nossa equipa está disponível para responder a todas as suas
-          questões.
-        </p>
-        <div class="contactCards">
-          <a
-            class="contactCard"
-            :href="whatsappUrl"
-            target="_blank"
-            rel="noopener"
-          >
-            <div class="contactIconWrap">
-              <img :src="whatsappIcon" alt="" class="contactImg" />
-            </div>
-            <div class="contactText">
-              <span class="contactLabel">WhatsApp</span>
-              <span class="contactValue">+258 86 205 1706</span>
-              <span class="contactCta">Iniciar conversa</span>
-            </div>
-            <i class="fi fi-rs-angle-right contactArrow" />
-          </a>
-          <a class="contactCard" href="mailto:info@portadordiario.co.mz">
-            <div class="contactIconWrap">
-              <img :src="gmailIcon" alt="" class="contactImg" />
-            </div>
-            <div class="contactText">
-              <span class="contactLabel">Email</span>
-              <span class="contactValue">info@portadordiario.co.mz</span>
-              <span class="contactCta">Enviar email</span>
-            </div>
-            <i class="fi fi-rs-angle-right contactArrow" />
-          </a>
-          <a class="contactCard" href="tel:+258821208151">
-            <div class="contactIconWrap">
-              <i class="fi fi-rs-phone-call contactIcon" />
-            </div>
-            <div class="contactText">
-              <span class="contactLabel">Telefone</span>
-              <span class="contactValue">+258 82 120 8151</span>
-              <span class="contactCta">Ligar agora</span>
-            </div>
-            <i class="fi fi-rs-angle-right contactArrow" />
-          </a>
+    <!-- CONTACTO + RODAPE -->
+    <footer
+      id="contacto"
+      ref="contactRef"
+      class="siteFooter"
+      :class="{ visible: contactVisible }"
+    >
+      <!-- Fundo com a pintura das carrinhas: roxo com faixas lima e magenta -->
+      <svg
+        class="sfLivery"
+        viewBox="0 0 1440 720"
+        preserveAspectRatio="xMidYMid slice"
+        aria-hidden="true"
+      >
+        <path
+          class="sfBand magenta"
+          d="M0 520 C 420 430 860 250 1440 60 L1440 250 C 900 400 460 560 0 650 Z"
+        />
+        <path
+          class="sfBand lime"
+          d="M0 600 C 460 500 900 330 1440 180 L1440 300 C 940 440 500 600 0 700 Z"
+        />
+        <path
+          class="sfStripe"
+          d="M0 668 C 480 560 920 400 1440 262"
+          fill="none"
+        />
+      </svg>
+      <img :src="symbolWhite" alt="" aria-hidden="true" class="sfSymbol" />
+
+      <div class="sfInner">
+        <!-- CONTACTO -->
+        <div class="sfContact">
+          <div class="sfHead">
+            <p class="sectionTag light">Precisa de ajuda?</p>
+            <h2 class="sfTitle">Fale connosco</h2>
+            <p class="sfDesc">
+              Respondemos por WhatsApp, email ou telefone. Escolha o canal que
+              lhe der mais jeito.
+            </p>
+          </div>
+
+          <ul class="sfChannels">
+            <li v-for="channel in contactChannels" :key="channel.key">
+              <a
+                class="sfChannel"
+                :class="channel.key"
+                :href="channel.href"
+                :target="channel.external ? '_blank' : undefined"
+                :rel="channel.external ? 'noopener' : undefined"
+              >
+                <span class="sfIcon">
+                  <img v-if="channel.img" :src="channel.img" alt="" />
+                  <i v-else :class="['fi', channel.icon]" />
+                </span>
+                <span class="sfLabel">{{ channel.label }}</span>
+                <span class="sfValue">{{ channel.value }}</span>
+                <span class="sfAction">
+                  <span class="sfActionText">{{ channel.action }}</span>
+                  <i class="fi fi-rs-arrow-small-right" />
+                </span>
+              </a>
+            </li>
+          </ul>
         </div>
-      </div>
-    </section>
 
-    <!-- FOOTER -->
-    <footer class="footer">
-      <div class="footerTop">
-        <div class="footerBrand">
-          <img :src="LogoPD" alt="Portador Diário" class="footerLogo" />
-          <span class="footerTagline">o seu correio onde estiver</span>
+        <!-- a estrada do "Como funciona" volta aqui, a fechar a pagina -->
+        <div class="sfRoad" aria-hidden="true">
+          <span class="sfBus"><i class="fi fi-rs-bus" /></span>
         </div>
 
-        <nav class="footerNav" aria-label="Rodapé">
-          <button class="footerLink" @click="scrollToSearch">Reservar viagem</button>
-          <button class="footerLink" @click="scrollToSection('como-funciona')">Como funciona</button>
-          <button class="footerLink" @click="scrollToSection('frota')">A nossa frota</button>
-          <button class="footerLink" @click="scrollToSection('contacto')">Contacto</button>
-        </nav>
+        <!-- RODAPE -->
+        <div class="sfBottom">
+          <div class="sfBrand">
+            <img :src="LogoPD" alt="Portador Diário" class="sfLogo" />
+            <span class="sfTagline">o seu correio onde estiver</span>
+          </div>
 
-        <button class="footerContactBtn" @click="openWhatsApp">
-          Contacte-nos
-        </button>
-      </div>
+          <nav class="sfNav" aria-label="Rodapé">
+            <button class="sfLink" @click="scrollToSearch">Reservar viagem</button>
+            <button class="sfLink" @click="scrollToSection('como-funciona')">
+              Como funciona
+            </button>
+            <button class="sfLink" @click="scrollToSection('frota')">
+              A nossa frota
+            </button>
+          </nav>
 
-      <div class="footerBottom">
-        <span class="footerCopy">
-          © {{ new Date().getFullYear() }} Portador Diário
-        </span>
-        <span class="footerRoute">
-          <img :src="flagMz" alt="Moçambique" class="footerFlag" />
-          Maputo
-          <span class="footerRouteArrow">⇄</span>
-          Johannesburg
-          <img :src="flagZa" alt="África do Sul" class="footerFlag" />
-        </span>
+          <span class="sfRoute">
+            <img :src="flagMz" alt="Moçambique" class="sfFlag" />
+            Maputo
+            <span class="sfRouteArrow">⇄</span>
+            Johannesburg
+            <img :src="flagZa" alt="África do Sul" class="sfFlag" />
+          </span>
+        </div>
+
+        <p class="sfCopy">© {{ new Date().getFullYear() }} Portador Diário</p>
       </div>
     </footer>
 
-    <!-- WHATSAPP FLUTUANTE -->
-    <a
-      class="waFab"
-      :href="whatsappUrl"
-      target="_blank"
-      rel="noopener"
-      aria-label="Fale connosco no WhatsApp"
-    >
-      <span class="waFabLabel">Dúvidas? Fale connosco</span>
-      <span class="waFabBtn">
-        <img :src="whatsappIcon" alt="" />
-      </span>
-    </a>
   </div>
 </template>
 
@@ -1609,18 +1639,44 @@ onUnmounted(() => {
   }
 }
 
+/* 2,2s ate ao bilhete (passo 2, a meio da estrada), 2s parado, 2,2s ate ao
+   passo 3. Para mesmo antes de cada circulo, sem o tapar. */
 @keyframes howBusDrive {
-  from {
+  0% {
     left: 0;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
   }
-  to {
+  34.4% {
+    left: calc(50% - 64px);
+  }
+  65.6% {
+    left: calc(50% - 64px);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
+  }
+  100% {
     left: calc(100% - 64px);
+  }
+}
+
+/* o bilhete "acende" enquanto o autocarro esta parado nele */
+@keyframes howTicketPing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(146, 40, 119, 0.35);
+    border-color: #f0e8ed;
+  }
+  30% {
+    border-color: #922877;
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(146, 40, 119, 0);
+    border-color: #f0e8ed;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .howSection.visible .step,
-  .howSection.visible .howBus {
+  .howSection.visible .howBus,
+  .howSection.visible .stepNode.ticket {
     animation: none;
   }
   .step::before,
@@ -2128,330 +2184,521 @@ onUnmounted(() => {
   }
 }
 
-/* ── CONTACTO ── */
-.contactSection {
-  background: #922877;
-  padding: 80px 0;
-}
-
-.contactCards {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.contactCard {
+/* ── CONTACTO + RODAPE ──
+   Um so bloco com o fundo da marca (a pintura das carrinhas: roxo com faixas
+   lima e magenta). Os canais de contacto sao icones soltos, sem cartoes; a
+   estrada tracejada do "Como funciona" separa o contacto do rodape. */
+.siteFooter {
   position: relative;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 16px;
-  padding: 18px 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  cursor: pointer;
-  color: inherit;
-  text-decoration: none;
+  overflow: hidden;
+  padding: 72px 24px 0;
+  color: #fff;
+  background: linear-gradient(160deg, #a12d85 0%, #922877 45%, #6d1c59 100%);
+}
+
+.sfLivery {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.sfBand,
+.sfStripe {
+  opacity: 0;
+  transform: translateX(-6%);
   transition:
-    background 0.2s,
-    transform 0.2s,
-    box-shadow 0.2s;
+    opacity 2s ease,
+    transform 2.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.contactCard:hover,
-.contactCard:focus-visible {
-  background: rgba(255, 255, 255, 0.18);
-  transform: translateY(-4px);
-  box-shadow: 0 16px 32px rgba(13, 13, 43, 0.25);
+.sfBand.magenta {
+  fill: #bb3a9e;
 }
 
-.contactCard:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 3px;
+.sfBand.lime {
+  fill: #c5d22d;
 }
 
-/* Ícone solto, sem fundo: só um brilho suave por trás que acende no hover */
-.contactIconWrap {
+.sfStripe {
+  stroke: #f2a516;
+  stroke-width: 3;
+}
+
+.siteFooter.visible .sfBand.magenta {
+  opacity: 0.45;
+  transform: none;
+}
+
+.siteFooter.visible .sfBand.lime {
+  opacity: 0.2;
+  transform: none;
+  transition-delay: 0.25s;
+}
+
+.siteFooter.visible .sfStripe {
+  opacity: 0.55;
+  transform: none;
+  transition-delay: 0.5s;
+}
+
+.sfSymbol {
+  position: absolute;
+  top: -70px;
+  right: -110px;
+  width: 360px;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.sfInner {
   position: relative;
-  width: 52px;
-  height: 52px;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+/* ── contacto ── */
+.sfContact {
+  display: grid;
+  gap: 36px;
+}
+
+.sfTitle {
+  font-size: clamp(32px, 6vw, 52px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 14px;
+}
+
+.sfDesc {
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.78);
+  max-width: 380px;
+}
+
+.sfChannels {
+  list-style: none;
+  display: grid;
+}
+
+/* Telemovel: uma linha por canal, separadas por um fio fino */
+.sfChannels li + li {
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.sfChannel {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  grid-template-areas:
+    "icon label action"
+    "icon value action";
+  align-items: center;
+  column-gap: 14px;
+  padding: 16px 0;
+  color: #fff;
+  text-decoration: none;
+}
+
+.sfIcon {
+  grid-area: icon;
+  position: relative;
+  width: 60px;
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
 }
 
-.contactIconWrap::before {
+/* sombra eliptica "no chao", que encolhe quando o icone sobe */
+.sfIcon::after {
   content: "";
   position: absolute;
-  inset: -6px;
+  bottom: 0;
+  left: 50%;
+  width: 34px;
+  height: 6px;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.35) 0%,
-    rgba(255, 255, 255, 0) 70%
-  );
-  opacity: 0;
-  transform: scale(0.6);
+  background: rgba(13, 13, 43, 0.3);
+  transform: translateX(-50%);
   transition:
-    opacity 0.3s,
-    transform 0.3s;
+    transform 0.6s ease,
+    opacity 0.6s ease;
 }
 
-.contactCard:hover .contactIconWrap::before {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.contactImg,
-.contactIcon {
+.sfIcon img,
+.sfIcon .fi {
   position: relative;
-  filter: drop-shadow(0 6px 10px rgba(13, 13, 43, 0.35));
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1;
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.contactImg {
-  width: 44px;
-  height: 44px;
+.sfIcon img {
+  width: 46px;
+  height: 46px;
   object-fit: contain;
 }
 
-.contactIcon {
-  font-size: 34px;
+.sfIcon .fi {
+  font-size: 36px;
   color: #fff;
   top: 3px;
 }
 
-.contactCard:hover .contactImg,
-.contactCard:hover .contactIcon {
-  transform: translateY(-4px) rotate(-10deg) scale(1.12);
+/* Flutuacao lenta e desencontrada: os icones "respiram" sem distrair */
+.siteFooter.visible .sfIcon img,
+.siteFooter.visible .sfIcon .fi {
+  animation: sfFloat 5s ease-in-out infinite;
 }
 
-.contactCta {
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
-  transition: color 0.2s;
+.sfChannels li:nth-child(2) .sfIcon img {
+  animation-delay: -1.6s;
 }
 
-.contactCard:hover .contactCta {
-  color: #fff;
+.sfChannels li:nth-child(3) .sfIcon .fi {
+  animation-delay: -3.2s;
 }
 
-.contactText {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.sfChannel:hover .sfIcon img,
+.sfChannel:hover .sfIcon .fi,
+.sfChannel:focus-visible .sfIcon img,
+.sfChannel:focus-visible .sfIcon .fi {
+  animation: none;
+  transform: translateY(-8px) rotate(-8deg) scale(1.08);
 }
 
-.contactLabel {
+.sfChannel:hover .sfIcon::after {
+  transform: translateX(-50%) scale(0.7);
+  opacity: 0.6;
+}
+
+.sfLabel {
+  grid-area: label;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.65);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.65);
 }
 
-.contactValue {
-  font-size: 15px;
+/* sublinhado lima que se desenha no hover */
+.sfValue {
+  grid-area: value;
+  justify-self: start;
+  font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  overflow-wrap: anywhere;
+  padding-bottom: 2px;
+  background: linear-gradient(#c5d22d, #c5d22d) no-repeat 0 100% / 0 2px;
+  transition: background-size 0.6s ease;
 }
 
-.contactArrow {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.4);
+.sfChannel:hover .sfValue,
+.sfChannel:focus-visible .sfValue {
+  background-size: 100% 2px;
 }
 
-/* ── FOOTER ── alinhado com o PublicHeader: fundo branco, linha #EEE, logo a cores */
-.footer {
+.sfAction {
+  grid-area: action;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #c5d22d;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sfAction .fi {
+  position: relative;
+  top: 2px;
+  font-size: 18px;
+  transition: transform 0.5s ease;
+}
+
+.sfChannel:hover .sfAction .fi {
+  transform: translateX(4px);
+}
+
+/* No telemovel so a seta; o texto da acao aparece a partir do tablet */
+.sfActionText {
+  display: none;
+}
+
+.sfChannel:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+/* ── estrada ── */
+.sfRoad {
+  position: relative;
+  height: 2px;
+  margin: 48px 0 32px;
+}
+
+.sfRoad::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.4) 0 10px,
+    transparent 10px 20px
+  );
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 2.4s ease 0.4s;
+}
+
+.siteFooter.visible .sfRoad::before {
+  transform: scaleX(1);
+}
+
+.sfBus {
+  position: absolute;
+  top: -14px;
+  left: calc(100% - 30px);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
   background: #fff;
-  border-top: 1px solid #eeeeee;
-  padding: 0 24px;
+  color: #922877;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 14px rgba(13, 13, 43, 0.25);
+  opacity: 0;
 }
 
-.footerTop {
+.sfBus .fi {
+  position: relative;
+  top: 2px;
+}
+
+.siteFooter.visible .sfBus {
+  opacity: 1;
+  animation: sfDrive 6s cubic-bezier(0.45, 0, 0.25, 1) 1s backwards;
+}
+
+/* ── rodape ── */
+.sfBottom {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 20px;
-  padding: 32px 0 24px;
   text-align: center;
 }
 
-.footerBrand {
+.sfBrand {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
 }
 
-.footerLogo {
+.sfLogo {
   height: 36px;
   width: auto;
+  filter: brightness(0) invert(1);
 }
 
-.footerTagline {
+.sfTagline {
   font-size: 12px;
-  color: #999;
+  color: rgba(255, 255, 255, 0.6);
 }
 
-.footerNav {
+.sfNav {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 4px 20px;
+  gap: 4px 22px;
 }
 
-.footerLink {
-  background: none;
-  border: none;
+.sfLink {
   padding: 4px 0;
-  font-size: 14px;
-  color: #555;
-  cursor: pointer;
-  transition: color 0.15s;
-}
-
-.footerLink:hover {
-  color: #922877;
-}
-
-.footerContactBtn {
-  background: #922877;
-  color: #fff;
   border: none;
-  border-radius: 8px;
-  padding: 10px 20px;
+  background: linear-gradient(#c5d22d, #c5d22d) no-repeat 0 100% / 0 2px;
+  color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
-  font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
-  transition: opacity 0.15s;
+  transition:
+    color 0.4s ease,
+    background-size 0.5s ease;
 }
 
-.footerContactBtn:hover {
-  opacity: 0.88;
+.sfLink:hover {
+  color: #fff;
+  background-size: 100% 2px;
 }
 
-.footerBottom {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  border-top: 1px solid #eeeeee;
-  /* espaco extra para o botao flutuante do WhatsApp nao tapar o texto */
-  padding: 16px 0 88px;
-}
-
-.footerCopy {
-  font-size: 12px;
-  color: #999;
-}
-
-.footerRoute {
+.sfRoute {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: #555;
+  color: rgba(255, 255, 255, 0.85);
 }
 
-.footerFlag {
+.sfFlag {
   width: 18px;
   height: 12px;
   object-fit: cover;
   border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
 
-.footerRouteArrow {
-  color: #922877;
+.sfRouteArrow {
+  color: #c5d22d;
 }
 
-/* ── WHATSAPP FLUTUANTE ── */
-.waFab {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  z-index: 300;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
+.sfCopy {
+  margin-top: 28px;
+  padding: 20px 0 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
 }
 
-.waFabBtn {
-  position: relative;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.waFabBtn::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 2px solid #25d366;
-  animation: fabRing 2.4s ease-out infinite;
-}
-
-.waFabBtn img {
-  position: relative;
-  width: 58px;
-  height: 58px;
-  filter: drop-shadow(0 8px 14px rgba(13, 13, 43, 0.3));
-}
-
-.waFab:hover .waFabBtn {
-  transform: rotate(-10deg) scale(1.1);
-}
-
-.waFabLabel {
-  display: none;
-  background: #0d0d2b;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 50px;
-  box-shadow: 0 6px 16px rgba(13, 13, 43, 0.2);
+/* ── entrada ── */
+.sfHead,
+.sfChannels li {
   opacity: 0;
-  transform: translateX(8px);
-  transition:
-    opacity 0.2s,
-    transform 0.2s;
 }
 
-.waFab:hover .waFabLabel,
-.waFab:focus-visible .waFabLabel {
+.siteFooter.visible .sfHead,
+.siteFooter.visible .sfChannels li {
   opacity: 1;
-  transform: translateX(0);
+  animation: howIn 1.1s ease backwards;
 }
 
-@keyframes fabRing {
-  0% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  70%,
+.siteFooter.visible .sfChannels li:nth-child(1) {
+  animation-delay: 0.3s;
+}
+
+.siteFooter.visible .sfChannels li:nth-child(2) {
+  animation-delay: 0.55s;
+}
+
+.siteFooter.visible .sfChannels li:nth-child(3) {
+  animation-delay: 0.8s;
+}
+
+@keyframes sfFloat {
+  0%,
   100% {
-    transform: scale(1.5);
-    opacity: 0;
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes sfDrive {
+  from {
+    left: 0;
+  }
+  to {
+    left: calc(100% - 30px);
+  }
+}
+
+/* Tablet: canais lado a lado, separados por fios verticais */
+@media (min-width: 680px) {
+  .sfChannels {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .sfChannels li + li {
+    border-top: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.16);
+  }
+
+  .sfChannel {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 4px 24px;
+  }
+
+  .sfChannels li:first-child .sfChannel {
+    padding-left: 0;
+  }
+
+  .sfIcon {
+    margin-bottom: 10px;
+  }
+
+  .sfAction {
+    margin-top: 10px;
+  }
+
+  .sfActionText {
+    display: inline;
+  }
+
+  .sfBottom {
+    flex-direction: row;
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .sfBrand {
+    align-items: flex-start;
+  }
+}
+
+@media (min-width: 1024px) {
+  .siteFooter {
+    padding: 100px 40px 0;
+  }
+
+  .sfContact {
+    grid-template-columns: 1fr 1.7fr;
+    align-items: end;
+    gap: 56px;
+  }
+
+  .sfLogo {
+    height: 40px;
+  }
+
+  .sfSymbol {
+    width: 480px;
+    top: -100px;
+    right: -140px;
+  }
+
+  .sfCopy {
+    padding-bottom: 28px;
+    text-align: left;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .searchCard.highlight,
-  .waFabBtn::before {
+  .sfBand,
+  .sfStripe,
+  .sfRoad::before {
+    transition: none;
+    transform: none;
+  }
+  .siteFooter.visible .sfHead,
+  .siteFooter.visible .sfChannels li,
+  .siteFooter.visible .sfBus,
+  .siteFooter.visible .sfIcon img,
+  .siteFooter.visible .sfIcon .fi {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .searchCard.highlight {
     animation: none;
   }
 }
@@ -2553,11 +2800,15 @@ onUnmounted(() => {
     position: relative;
     top: 2px;
   }
-  /* o autocarro sai do passo 1 e para mesmo antes do passo 3 */
+  /* o autocarro sai do passo 1, para 2s no bilhete e segue ate ao passo 3 */
   .howSection.visible .howBus {
     opacity: 1;
     left: calc(100% - 64px);
-    animation: howBusDrive 4.5s cubic-bezier(0.45, 0, 0.25, 1) 1s backwards;
+    animation: howBusDrive 6.4s linear 1s backwards;
+  }
+  /* chega ao bilhete aos 1s + 2,2s */
+  .howSection.visible .stepNode.ticket {
+    animation: howTicketPing 2s ease-out 3.2s;
   }
 
   /* rota horizontal */
@@ -2632,31 +2883,6 @@ onUnmounted(() => {
     right: -160px;
     bottom: -180px;
   }
-
-  .contactCards {
-    flex-direction: row;
-  }
-  .contactCard {
-    flex: 1;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .contactArrow {
-    display: none;
-  }
-
-  .footerTop {
-    flex-direction: row;
-    justify-content: space-between;
-    text-align: left;
-  }
-  .footerBrand {
-    align-items: flex-start;
-  }
-  .footerBottom {
-    flex-direction: row;
-    justify-content: space-between;
-  }
 }
 
 /* ── DESKTOP 1024px ── */
@@ -2685,32 +2911,9 @@ onUnmounted(() => {
   .fleetSection {
     padding: 100px 40px;
   }
-  .contactSection {
-    padding: 100px 0;
-  }
 
   .featuresInner {
     grid-template-columns: repeat(4, 1fr);
-  }
-
-  .footer {
-    padding: 0 40px;
-  }
-  .footerLogo {
-    height: 40px;
-  }
-  /* No desktop o botao flutuante fica ao lado do texto, nao por cima */
-  .footerBottom {
-    padding-bottom: 16px;
-    padding-right: 100px;
-  }
-
-  .waFab {
-    right: 28px;
-    bottom: 28px;
-  }
-  .waFabLabel {
-    display: block;
   }
 
   .stopName {
