@@ -6,9 +6,30 @@ export const useTripStore = defineStore('trip', {
     trips: [],
     pagination: { current_page: 1, last_page: 1, total: 0 },
     loading: false,
+    // Estado separado para as listas de selecção dos modais. Partilhar
+    // o `trips` fazia um modal reescrever a tabela do ecrã por baixo
+    // do utilizador, incluindo a paginação.
+    options: [],
+    loadingOptions: false,
   }),
 
   actions: {
+
+    /**
+     * Lista para dropdowns. Nunca toca no estado da tabela.
+     * Sem cache: os filtros de data mudam entre modais.
+     */
+    async fetchOptions(params = {}) {
+      this.loadingOptions = true
+
+      try {
+        const res = await tripService.list({ per_page: 100, ...params })
+        this.options = res.data
+        return this.options
+      } finally {
+        this.loadingOptions = false
+      }
+    },
     async fetchTrips(params = {}) {
       this.loading = true
 
@@ -44,6 +65,10 @@ export const useTripStore = defineStore('trip', {
 
     async downloadManifest(id) {
       return tripService.manifestPdf(id)
+    },
+
+    async downloadCargoManifest(id) {
+      return tripService.cargoManifestPdf(id)
     },
   },
 })

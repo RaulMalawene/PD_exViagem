@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { usePublicBookingStore } from '../../stores/publicBookingStore'
 import { useToast } from '../../composables/useToast'
 import { parseApiError } from '../../utils/parseApiError'
+import { generateUuid } from '../../utils/generateUuid'
 import BookingStepper from '../../components/BookingStepper.vue'
 
 const router = useRouter()
@@ -16,13 +17,14 @@ const tripId = route.query.trip_id
 function getOrCreateSessionToken() {
   let token = sessionStorage.getItem('booking_session_token')
   if (!token) {
-    token = crypto.randomUUID()
+    token = generateUuid()
     sessionStorage.setItem('booking_session_token', token)
   }
   return token
 }
 
 const loading = ref(true)
+const loadError = ref(null)
 const tripData = ref(null)
 const layout = ref([])
 const seatStatuses = ref({})
@@ -56,12 +58,21 @@ function getSeatState(seat) {
   if (!seat) return 'aisle'
   if (selectedSeats.value.includes(seat)) return 'selected'
   const status = seatStatuses.value[seat] ?? 'available'
+
+  if (status === 'held_by_me') return 'selected'
   return status === 'held' ? 'booked' : status
 }
 
+
+let availabilityRequestId = 0
+
 async function fetchAvailability() {
+  const requestId = ++availabilityRequestId
+
   try {
     const data = await bookingStore.fetchAvailability(tripId, sessionToken.value)
+
+    if (requestId !== availabilityRequestId) return
 
     tripData.value = data
     layout.value = data.layout ?? []
@@ -86,11 +97,21 @@ async function fetchAvailability() {
     selectedSeats.value = mySeats
     seatExpiries.value = myExpiries
     if (mySeats.length) startTimer()
+    loadError.value = null
   } catch (err) {
-    showToast('error', parseApiError(err))
+    if (requestId !== availabilityRequestId) return
+
+
+    loadError.value = parseApiError(err)
   } finally {
-    loading.value = false
+    if (requestId === availabilityRequestId) loading.value = false
   }
+}
+
+async function retryAvailability() {
+  loading.value = true
+  loadError.value = null
+  await fetchAvailability()
 }
 
 async function toggleSeat(seat) {
@@ -98,7 +119,7 @@ async function toggleSeat(seat) {
 
   const state = getSeatState(seat)
 
-  if (state === 'booked') return
+  if (state !== 'available' && state !== 'selected') return
 
   pendingSeats.value = [...pendingSeats.value, seat]
 
@@ -107,9 +128,7 @@ async function toggleSeat(seat) {
     return
   }
 
-  if (state === 'available') {
-    await holdSeat(seat)
-  }
+  await holdSeat(seat)
 }
 
 async function holdSeat(seat) {
@@ -191,28 +210,46 @@ function proceed() {
     holdExpiresAt,
   })
 
+  // O session_token nao vai no URL: fica no sessionStorage e no estado do
+  // fluxo. E a credencial que dá acesso aos dados do passageiro e ao pagamento.
   router.push({
     path: '/booking/passengers',
     query: {
       trip_id: tripId,
       seats: selectedSeats.value.join(','),
-      session_token: sessionToken.value,
     },
   })
 }
 
 onMounted(() => {
   const flow = bookingStore.flow
+
+  // Ja ha reservas criadas para ESTA viagem: nao se cria outra vez.
   if (flow.bookingGroup && String(flow.tripId) === String(tripId)) {
     router.replace({
       path: '/booking/payment',
-      query: { trip_id: tripId, bookings: JSON.stringify(flow.bookingGroup) },
+      query: { trip_id: tripId },
     })
     return
   }
 
+
+  // Ha uma reserva anterior por pagar e esta a comecar-se outra: o token tem
+  // de ser novo. Mantendo o antigo, as reservas novas juntavam-se as antigas e
+  // o pagamento cobrava as duas de uma vez.
+  if (flow.bookingGroup) {
+    sessionStorage.removeItem('booking_session_token')
+    sessionToken.value = getOrCreateSessionToken()
+    bookingStore.saveFlow({ bookingGroup: null, passengers: null, sessionToken: sessionToken.value })
+  }
+
   fetchAvailability()
-  pollInterval = setInterval(fetchAvailability, 15000)
+
+  pollInterval = setInterval(() => {
+    // Nao sondar a meio de um hold: a resposta traria o mapa de antes.
+    if (pendingSeats.value.length) return
+    fetchAvailability()
+  }, 15000)
 })
 
 onUnmounted(() => {
@@ -256,6 +293,20 @@ onUnmounted(() => {
         <!-- LOADING -->
         <div v-if="loading" class="stateBox">
           <div class="spinner" />
+        </div>
+
+        <!-- ERRO -->
+        <div v-else-if="loadError" class="errorBox">
+          <i class="fi fi-rs-triangle-warning errorIcon" />
+          <span class="errorTitle">Não foi possível carregar os lugares</span>
+          <span class="errorText">{{ loadError }}</span>
+          <div class="errorActions">
+            <button type="button" class="retryBtn" @click="retryAvailability">
+              <i class="fi fi-rs-refresh" />
+              Voltar a tentar
+            </button>
+            <RouterLink to="/booking" class="restartBtn">Começar de novo</RouterLink>
+          </div>
         </div>
 
         <template v-else>
@@ -504,6 +555,82 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 80px 0;
+}
+
+.errorBox {
+  background: #fff;
+  border-radius: 14px;
+  padding: 36px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.errorIcon {
+  font-size: 34px;
+  color: #f0ad4e;
+  margin-bottom: 4px;
+}
+
+.errorTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #221F20;
+}
+
+.errorText {
+  font-size: 14px;
+  color: #777;
+  max-width: 340px;
+  line-height: 1.5;
+}
+
+.errorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.retryBtn {
+  height: 42px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 8px;
+  background: #922877;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.15s;
+}
+
+.retryBtn:hover {
+  opacity: 0.88;
+}
+
+.restartBtn {
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 8px;
+  background: #F0F0F0;
+  color: #555;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+
+.restartBtn:hover {
+  background: #E5E5E5;
 }
 
 .spinner {

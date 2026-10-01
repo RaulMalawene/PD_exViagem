@@ -5,9 +5,11 @@ import { useBookingStore } from '../stores/bookingStore'
 import { useTripStore } from '../stores/tripStore'
 import { useRouteStore } from '../stores/routeStore'
 import { useToast } from '../composables/useToast'
+import { useDropdownOptions } from '../composables/useDropdownOptions'
 import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
 import { routeAbbr } from '../utils/routeAbbr'
+import { generateUuid } from '../utils/generateUuid'
 import BaseInput from '../components/BaseInput.vue'
 import InputDropDown from '../components/InputDropDown.vue'
 import flagMz from '../assets/flag_mz.svg'
@@ -18,13 +20,14 @@ const emit = defineEmits(['close'])
 const bookingStore = useBookingStore()
 const tripStore = useTripStore()
 const routeStore = useRouteStore()
-const { trips } = storeToRefs(tripStore)
-const { routes } = storeToRefs(routeStore)
+const loadOptions = useDropdownOptions()
+const { options: trips } = storeToRefs(tripStore)
+const { options: routes } = storeToRefs(routeStore)
 const { showToast } = useToast()
 
 const selectedRouteId = ref('')
 
-const sessionToken = crypto.randomUUID()
+const sessionToken = generateUuid()
 
 const countries = [
   { code: 'MZ', prefix: '+258', flag: flagMz, label: 'MZ +258' },
@@ -51,7 +54,7 @@ const pendingSeats = ref([])
 const passengers = ref({})
 
 const paymentMethodOptions = [
-  { value: 'cash', label: 'Dinheiro' },
+  { value: 'cash', label: 'Numerário' },
   { value: 'transfer_mz', label: 'Transferência (MZ)' },
   { value: 'transfer_za', label: 'Transferência (ZA)' },
 ]
@@ -249,7 +252,8 @@ async function handleSubmit() {
   try {
     const payload = {
       session_token: sessionToken,
-      trip_id: Number(selectedTripId.value),
+      // Os identificadores publicos sao uuid: converter para numero dava NaN.
+      trip_id: selectedTripId.value,
       payment_method: paymentMethod.value,
       currency: currency.value,
       bookings: selectedSeats.value.map((seat) => {
@@ -291,8 +295,11 @@ async function handleClose() {
 }
 
 onMounted(() => {
-  tripStore.fetchTrips({ per_page: 100 })
-  routeStore.fetchRoutes({ per_page: 100 })
+  // Sem o date_from vinham tambem viagens ja realizadas, que nao se podem vender.
+  loadOptions(
+    tripStore.fetchOptions({ date_from: new Date().toISOString().slice(0, 10) }),
+    routeStore.fetchOptions(),
+  )
   document.addEventListener('click', handleOutsideClick)
 })
 

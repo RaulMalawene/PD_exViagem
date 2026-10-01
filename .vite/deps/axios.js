@@ -31,8 +31,8 @@ var { iterator, toStringTag } = Symbol;
 var hasOwnProperty = (({ hasOwnProperty }) => (obj, prop) => hasOwnProperty.call(obj, prop))(Object.prototype);
 /**
 * Walk the prototype chain (excluding the shared Object.prototype) looking for
-* an own `prop`. This distinguishes genuine own/inherited members — including
-* class accessors and template prototypes — from members injected via
+* an own `prop`. This distinguishes genuine own/inherited members - including
+* class accessors and template prototypes - from members injected via
 * Object.prototype pollution (e.g. `Object.prototype.username = '...'`), which
 * live on Object.prototype itself and are therefore never matched.
 *

@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { toPng } from 'html-to-image'
 import { usePublicBookingStore } from '../../stores/publicBookingStore'
 import { useToast } from '../../composables/useToast'
 import { formatDate } from '../../utils/formatDate'
@@ -14,7 +13,9 @@ const route = useRoute()
 const bookingStore = usePublicBookingStore()
 const { showToast } = useToast()
 
-const sessionToken = route.query.session_token
+// Depois de pago o fluxo e limpo, mas o token fica guardado a parte para esta
+// pagina o poder usar — ver completeFlow()/completedSessionToken().
+const sessionToken = bookingStore.currentSessionToken()
 const paymentMethodUsed = route.query.method ?? null
 
 const selectedTicket = ref(null)
@@ -47,8 +48,12 @@ async function loadBookings() {
       if (res.trip) {
         tripInfo.value = {
           route: res.trip.route_name ?? tripInfo.value.route,
+          origin: res.trip.origin,
+          destination: res.trip.destination,
           date: res.trip.departure_date ?? tripInfo.value.date,
           time: res.trip.departure_time?.slice(0, 5) ?? tripInfo.value.time,
+          price_mzn: res.trip.price_mzn,
+          price_zar: res.trip.price_zar,
         }
       }
       loadError.value = false
@@ -90,6 +95,8 @@ function viewTicket(booking) {
 }
 
 async function captureTicketImage(el) {
+  // So e precisa ao carregar no botao — nao no arranque da pagina.
+  const { toPng } = await import('html-to-image')
   const dataUrl = await toPng(el, { pixelRatio: 2, backgroundColor: '#ffffff' })
   const blob = await (await fetch(dataUrl)).blob()
   return blob
@@ -143,6 +150,8 @@ async function handleSendWhatsApp(phone) {
 }
 
 async function downloadImage(el, filename) {
+  // So e precisa ao carregar no botao — nao no arranque da pagina.
+  const { toPng } = await import('html-to-image')
   const dataUrl = await toPng(el, { pixelRatio: 2, backgroundColor: '#ffffff' })
   const link = document.createElement('a')
   link.download = filename
@@ -691,10 +700,21 @@ function newBooking() {
   position: fixed;
   top: 0;
   left: -10000px;
-  width: 360px;
+  width: 620px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* A media query do TicketCard responde a JANELA, nao a este contentor. Sem
+   isto, a mesma reserva gerava uma imagem empilhada no telemovel e larga no
+   desktop. Aqui a largura e sempre 620px, por isso forcamos o formato largo. */
+.captureArea :deep(.ticketCard) {
+  flex-direction: row;
+}
+
+.captureArea :deep(.stub) {
+  width: 30%;
 }
 
 /* DESKTOP */

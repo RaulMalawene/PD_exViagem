@@ -54,3 +54,28 @@ img {
 *::-webkit-scrollbar-thumb:hover {
   background-color: #a8a8a8;
 }
+
+/* Titulo de cada pagina: o tamanho vem inline do Text.vue, so !important o consegue reduzir */
+@media (max-width: 767px) {
+  .windows header > p {
+    font-size: 26px !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .windows header > p {
+    font-size: 26px !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .windows header > p {
+    font-size: 28px !important;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .windows header > p {
+    font-size: 30px !important;
+  }
+}

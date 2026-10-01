@@ -42,7 +42,7 @@ const outboundRouteName = computed(() => props.roundTrip.outbound_trip?.route?.n
 const returnRouteName = computed(() => props.roundTrip.return_trip?.route?.name ?? 'Volta')
 
 const paymentMethodLabels = {
-  cash: 'Dinheiro',
+  cash: 'Numerário',
   transfer_mz: 'Transferência (MZ)',
   transfer_za: 'Transferência (ZA)',
   card: 'Cartão',
@@ -54,9 +54,28 @@ const paymentMethodLabels = {
 
 const expenses = ref({})
 
+// O adiantamento entregue à equipa. É dele que saem as despesas e o que resta
+// é o troco — por isso é editável, tal como as despesas.
+const advance = ref({ advance_mzn: 0, advance_zar: 0 })
+
 function fmt(v) {
   return Number(v ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+
+// Total e troco acompanham o que se escreve, em vez de só mudarem depois de
+// gravar. O troco depende apenas destes campos, por isso pode ser calculado
+// aqui; o servidor volta a calculá-lo na gravação e continua a ser a verdade.
+const totalExpenses = computed(() => {
+  const soma = (moeda) => Object.keys(expenseLabels)
+    .reduce((total, key) => total + Number(expenses.value[`expense_${key}_${moeda}`] || 0), 0)
+
+  return { mzn: soma('mzn'), zar: soma('zar') }
+})
+
+const troco = computed(() => ({
+  mzn: Number(advance.value.advance_mzn || 0) - totalExpenses.value.mzn,
+  zar: Number(advance.value.advance_zar || 0) - totalExpenses.value.zar,
+}))
 
 async function loadReport() {
   loading.value = true
@@ -70,6 +89,10 @@ async function loadReport() {
       values[`expense_${key}_zar`] = report.value.reconciliation.expenses[key].zar
     }
     expenses.value = values
+    advance.value = {
+      advance_mzn: report.value.reconciliation.valor_entregue.mzn,
+      advance_zar: report.value.reconciliation.valor_entregue.zar,
+    }
   } catch (err) {
     showToast('error', parseApiError(err))
   } finally {
@@ -84,6 +107,7 @@ async function saveExpenses(close = false) {
   try {
     const res = await roundTripStore.updateReconciliation(props.roundTrip.id, {
       ...expenses.value,
+      ...advance.value,
       close,
     })
     report.value = res.data
@@ -125,7 +149,7 @@ onMounted(loadReport)
       <Transition name="modal" appear>
         <div class="modalCard">
           <div class="modalHeader">
-            <span class="modalTitle">Relatório — {{ roundTrip.process_number }}</span>
+            <span class="modalTitle">Relatório - {{ roundTrip.process_number }}</span>
             <button class="closeBtn" @click="handleClose">
               <i class="fi fi-br-cross" />
             </button>
@@ -191,16 +215,6 @@ onMounted(loadReport)
                   <td>{{ fmt(report.payment_methods[key].mzn) }}</td>
                   <td>{{ fmt(report.payment_methods[key].zar) }}</td>
                 </tr>
-                <tr class="totalRow">
-                  <td>Valor Entregue</td>
-                  <td>{{ fmt(report.reconciliation.valor_entregue.mzn) }}</td>
-                  <td>{{ fmt(report.reconciliation.valor_entregue.zar) }}</td>
-                </tr>
-                <tr>
-                  <td>Diferença não depositada</td>
-                  <td>{{ fmt(report.reconciliation.diferenca_nao_depositada.mzn) }}</td>
-                  <td>{{ fmt(report.reconciliation.diferenca_nao_depositada.zar) }}</td>
-                </tr>
               </tbody>
             </table>
 
@@ -214,6 +228,11 @@ onMounted(loadReport)
                 </tr>
               </thead>
               <tbody>
+                <tr class="totalRow">
+                  <td>Valor Entregue à equipa</td>
+                  <td><input type="number" class="expenseInput" v-model="advance.advance_mzn" /></td>
+                  <td><input type="number" class="expenseInput" v-model="advance.advance_zar" /></td>
+                </tr>
                 <tr v-for="(label, key) in expenseLabels" :key="key">
                   <td>{{ label }}</td>
                   <td><input type="number" class="expenseInput" v-model="expenses[`expense_${key}_mzn`]" /></td>
@@ -221,13 +240,13 @@ onMounted(loadReport)
                 </tr>
                 <tr class="totalRow">
                   <td>Total das Despesas</td>
-                  <td>{{ fmt(report.reconciliation.expenses_total.mzn) }}</td>
-                  <td>{{ fmt(report.reconciliation.expenses_total.zar) }}</td>
+                  <td>{{ fmt(totalExpenses.mzn) }}</td>
+                  <td>{{ fmt(totalExpenses.zar) }}</td>
                 </tr>
                 <tr class="totalRow">
                   <td>Trocos</td>
-                  <td>{{ fmt(report.reconciliation.trocos.mzn) }}</td>
-                  <td>{{ fmt(report.reconciliation.trocos.zar) }}</td>
+                  <td :class="{ negative: troco.mzn < 0 }">{{ fmt(troco.mzn) }}</td>
+                  <td :class="{ negative: troco.zar < 0 }">{{ fmt(troco.zar) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -242,7 +261,7 @@ onMounted(loadReport)
               {{ downloadingPdf ? 'A gerar...' : 'Exportar PDF' }}
             </button>
             <button class="btnSecondary" :disabled="saving || closing" @click="saveExpenses(false)">
-              {{ saving ? 'A guardar...' : 'Guardar despesas' }}
+              {{ saving ? 'A guardar...' : 'Guardar valores' }}
             </button>
             <button class="btnPrimary" :disabled="saving || closing" @click="saveExpenses(true)">
               {{ closing ? 'A fechar...' : 'Fechar relatório' }}
@@ -385,6 +404,11 @@ onMounted(loadReport)
 .reportTable .totalRow td {
   font-weight: 700;
   background: #f7f2f6;
+}
+
+/* Troco negativo: a equipa gastou mais do que recebeu e a empresa deve-lhe. */
+.reportTable td.negative {
+  color: #c0392b;
 }
 
 .expenseInput {

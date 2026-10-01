@@ -43,4 +43,35 @@ defineProps({
   position: relative;
   top: 2px;
 }
+
+@media (max-width: 767px) {
+  .fakebutton {
+    height: 38px;
+    padding: 12px;
+    padding-left: 18px;
+    font-size: 13px;
+  }
+
+  .fakebutton :deep(p) {
+    font-size: 13px !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .fakebutton {
+    height: 38px;
+    padding: 12px;
+    padding-left: 20px;
+  }
+
+  .fakebutton :deep(p) {
+    font-size: 13px !important;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .fakebutton :deep(p) {
+    font-size: 14px !important;
+  }
+}
 </style>

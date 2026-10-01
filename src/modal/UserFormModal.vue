@@ -1,8 +1,10 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useUserStore } from '../stores/userStore'
+import { useAuthStore } from '../stores/authStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
+import { roleOptions, ROLE_DESCRIPTIONS } from '../utils/roles'
 import BaseInput from '../components/BaseInput.vue'
 import InputDropDown from '../components/InputDropDown.vue'
 
@@ -16,15 +18,10 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const userStore = useUserStore()
+const authStore = useAuthStore()
 const { showToast } = useToast()
 
 const localUser = ref(props.user)
-
-const roleOptions = [
-  { id: 'admin', name: 'Administrador' },
-  { id: 'staff', name: 'Funcionário' },
-  { id: 'driver', name: 'Motorista' },
-]
 
 const form = ref({
   name: props.user?.name ?? '',
@@ -32,6 +29,19 @@ const form = ref({
   role: props.user?.role ?? '',
   is_active: props.user?.is_active ?? true,
 })
+
+const roleHint = computed(() => ROLE_DESCRIPTIONS[form.value.role] ?? '')
+
+// Reenviar credenciais gera uma password nova: nao faz sentido na propria
+// conta (ficava sem acesso) nem numa conta desactivada.
+const canResend = computed(() =>
+  !!localUser.value
+  && localUser.value.id !== authStore.user?.id
+  && form.value.is_active
+)
+
+const confirmingResend = ref(false)
+const isResending = ref(false)
 
 const formErrors = ref({ name: '', email: '', role: '' })
 const isSaving = ref(false)
@@ -92,6 +102,20 @@ async function handleSave() {
   }
 }
 
+async function handleResend() {
+  isResending.value = true
+
+  try {
+    const res = await userStore.resendCredentials(localUser.value.id)
+    confirmingResend.value = false
+    showToast('success', res?.message ?? 'Novas credenciais enviadas por email.')
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    isResending.value = false
+  }
+}
+
 function handleClose() {
   emit('close', !!localUser.value)
 }
@@ -130,12 +154,42 @@ function handleClose() {
                 <InputDropDown label="Perfil" :modelValue="form.role" :options="roleOptions"
                   @update:modelValue="form.role = $event" />
                 <span v-if="formErrors.role" class="fieldError">{{ formErrors.role }}</span>
+                <span v-if="roleHint && !formErrors.role" class="fieldHint">{{ roleHint }}</span>
               </div>
 
               <label v-if="localUser" class="activeToggle">
                 <input type="checkbox" v-model="form.is_active" />
                 Utilizador activo
               </label>
+
+              <div v-if="canResend" class="resendBlock">
+                <template v-if="!confirmingResend">
+                  <p class="resendText">
+                    Se o email estava errado, corrija-o acima, guarde e reenvie as credenciais.
+                    Serve também quando o utilizador esquece a password.
+                  </p>
+                  <button class="btnGhost" @click="confirmingResend = true">
+                    <i class="fi fi-rs-paper-plane" />
+                    Reenviar credenciais
+                  </button>
+                </template>
+
+                <template v-else>
+                  <p class="resendWarning">
+                    Vai ser gerada uma <strong>password nova</strong> e enviada para
+                    <strong>{{ localUser.email }}</strong>. A password actual deixa de funcionar
+                    e as sessões abertas são terminadas.
+                  </p>
+                  <div class="resendActions">
+                    <button class="btnGhost" :disabled="isResending" @click="confirmingResend = false">
+                      Cancelar
+                    </button>
+                    <button class="btnPrimary btnSmall" :disabled="isResending" @click="handleResend">
+                      {{ isResending ? 'A enviar...' : 'Confirmar e enviar' }}
+                    </button>
+                  </div>
+                </template>
+              </div>
             </div>
           </div>
 
@@ -254,6 +308,73 @@ function handleClose() {
   font-size: 11px;
   color: #e74c3c;
   padding-left: 2px;
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: #999;
+  padding-left: 2px;
+}
+
+.resendBlock {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.resendText {
+  font-size: 12px;
+  color: #777;
+  line-height: 1.5;
+}
+
+.resendWarning {
+  font-size: 12px;
+  color: #b9770e;
+  line-height: 1.5;
+  background: #FDF6E7;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.resendActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btnGhost {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  align-self: flex-start;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1.5px solid #922877;
+  background: transparent;
+  color: #922877;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btnGhost:hover:not(:disabled) {
+  background: #F3ECF2;
+}
+
+.btnGhost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnSmall {
+  height: 36px;
+  font-size: 12.5px;
 }
 
 .activeToggle {

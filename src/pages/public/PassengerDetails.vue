@@ -18,7 +18,8 @@ const bookingStore = usePublicBookingStore()
 const { showToast } = useToast()
 
 const tripId = route.query.trip_id
-const sessionToken = route.query.session_token
+// Do estado local, nunca do URL — ver publicBookingStore.currentSessionToken().
+const sessionToken = bookingStore.currentSessionToken()
 const seats = (route.query.seats ?? '').split(',').filter(Boolean)
 
 const isValidSession = computed(() => !!(tripId && sessionToken && seats.length))
@@ -206,7 +207,7 @@ async function proceed() {
 
     const payload = {
         session_token: sessionToken,
-        trip_id: Number(tripId),
+        trip_id: tripId,
         payment_method: 'cash',
         payment_reference: null,
         bookings: seats.map((seat, i) => {
@@ -228,12 +229,10 @@ async function proceed() {
     try {
         const res = await bookingStore.submitBooking(payload)
         bookingStore.saveFlow({ bookingGroup: res.data })
+        // As reservas ficam no saveFlow acima; nao vao para a query.
         router.push({
             path: '/booking/payment',
-            query: {
-                trip_id: tripId,
-                bookings: JSON.stringify(res.data),
-            },
+            query: { trip_id: tripId },
         })
     } catch (err) {
         if (err.response?.status === 409) {
@@ -262,7 +261,7 @@ onMounted(() => {
     if (flow.bookingGroup && String(flow.tripId) === String(tripId)) {
         router.replace({
             path: '/booking/payment',
-            query: { trip_id: tripId, bookings: JSON.stringify(flow.bookingGroup) },
+            query: { trip_id: tripId },
         })
         return
     }

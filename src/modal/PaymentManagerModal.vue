@@ -4,6 +4,7 @@ import { useBookingStore } from '../stores/bookingStore'
 import { useInvoiceStore } from '../stores/invoiceStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
+import { formatDateTime } from '../utils/formatDate'
 import Badge from '../components/Badge.vue'
 
 const props = defineProps({
@@ -21,7 +22,7 @@ const invoice = ref(props.booking.invoice ? { ...props.booking.invoice } : null)
 const changed = ref(false)
 
 const paymentMethodOptions = [
-  { value: 'cash', label: 'Dinheiro' },
+  { value: 'cash', label: 'Numerário' },
   { value: 'transfer_mz', label: 'Transferência (MZ)' },
   { value: 'transfer_za', label: 'Transferência (ZA)' },
   { value: 'card', label: 'Cartão' },
@@ -121,17 +122,24 @@ async function handleSaveDiscount() {
 // --- Bagagens ---
 const packages = ref([])
 const loadingPackages = ref(false)
+const packagesError = ref('')
 const showAddPackageForm = ref(false)
-const packageForm = ref({ description: '', amount: null, currency: 'MZN', payment_method: '' })
+const packageForm = ref({ description: '', quantity: 1, amount: null, currency: 'MZN', payment_method: '' })
 const packageError = ref('')
 const isAddingPackage = ref(false)
 const packageActionId = ref(null)
+const printingTagsId = ref(null)
 
 async function fetchPackages() {
   loadingPackages.value = true
+  packagesError.value = ''
   try {
     const res = await bookingStore.fetchPackages(props.booking.id)
     packages.value = res.data
+  } catch (err) {
+    // Sem este catch o ecra dizia "Nenhuma bagagem registada" quando a API
+    // falhava — uma mentira num ecra que serve para cobrar.
+    packagesError.value = parseApiError(err)
   } finally {
     loadingPackages.value = false
   }
@@ -141,6 +149,11 @@ async function handleAddPackage() {
   packageError.value = ''
   if (!packageForm.value.description.trim()) {
     packageError.value = 'A descrição é obrigatória.'
+    return
+  }
+  const quantity = Number(packageForm.value.quantity)
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
+    packageError.value = 'A quantidade tem de ser um número inteiro entre 1 e 50.'
     return
   }
   if (!packageForm.value.amount || Number(packageForm.value.amount) <= 0) {
@@ -153,6 +166,7 @@ async function handleAddPackage() {
   try {
     const res = await bookingStore.createPackage(props.booking.id, {
       description: packageForm.value.description,
+      quantity,
       amount: packageForm.value.amount,
       currency: packageForm.value.currency,
       payment_method: packageForm.value.payment_method || null,
@@ -160,7 +174,7 @@ async function handleAddPackage() {
     packages.value.unshift(res.data)
     changed.value = true
     showAddPackageForm.value = false
-    packageForm.value = { description: '', amount: null, currency: 'MZN', payment_method: '' }
+    packageForm.value = { description: '', quantity: 1, amount: null, currency: 'MZN', payment_method: '' }
     showToast('success', 'Bagagem adicionada com sucesso.')
   } catch (err) {
     showToast('error', parseApiError(err))
@@ -198,6 +212,25 @@ async function handleCancelPackage(pkg) {
     showToast('error', parseApiError(err))
   } finally {
     packageActionId.value = null
+  }
+}
+
+async function handlePrintTags(pkg) {
+  if (printingTagsId.value) return
+  printingTagsId.value = pkg.id
+
+  try {
+    const blob = await invoiceStore.downloadBaggageTags(pkg.id)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `etiquetas-${pkg.tag_code}.pdf`
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    printingTagsId.value = null
   }
 }
 
@@ -241,6 +274,10 @@ onMounted(() => {
                 <div class="amountItem total">
                   <span class="amountLabel">Total</span>
                   <span class="amountValue">{{ invoice.total_amount }} {{ invoice.currency }}</span>
+                </div>
+                <div v-if="invoice.paid_at" class="amountItem">
+                  <span class="amountLabel">Pago em</span>
+                  <span class="amountValue">{{ formatDateTime(invoice.paid_at) }}</span>
                 </div>
               </div>
 
@@ -320,16 +357,29 @@ onMounted(() => {
               </div>
 
               <template v-else>
-                <div v-if="packages.length === 0" class="emptyPackages">Nenhuma bagagem registada.</div>
+                <div v-if="packagesError" class="emptyPackages">
+                  {{ packagesError }}
+                  <button type="button" class="retryLink" @click="fetchPackages">Voltar a tentar</button>
+                </div>
+
+                <div v-else-if="packages.length === 0" class="emptyPackages">Nenhuma bagagem registada.</div>
 
                 <div v-else class="packageList">
                   <div v-for="pkg in packages" :key="pkg.id" class="packageRow">
                     <div class="packageInfo">
                       <span class="packageDescription">{{ pkg.description }}</span>
+                      <span class="packageMeta">
+                        {{ pkg.quantity }} {{ pkg.quantity === 1 ? 'volume' : 'volumes' }}
+                        <template v-if="pkg.tag_code"> · {{ pkg.tag_code }}</template>
+                        <template v-if="pkg.paid_at"> · Pago em {{ formatDateTime(pkg.paid_at) }}</template>
+                      </span>
                       <span class="packageAmount">{{ pkg.total_amount }} {{ pkg.currency }}</span>
                     </div>
                     <div class="packageActions">
                       <Badge :status="pkg.status" />
+                      <button class="iconBtn print" :disabled="printingTagsId === pkg.id" @click="handlePrintTags(pkg)" title="Imprimir etiquetas">
+                        <i class="fi fi-rs-print" />
+                      </button>
                       <template v-if="pkg.status === 'pending'">
                         <button class="iconBtn pay" :disabled="packageActionId === pkg.id" @click="handlePayPackage(pkg)" title="Marcar como pago">
                           <i class="fi fi-rs-check" />
@@ -354,9 +404,13 @@ onMounted(() => {
                     <label class="fieldLabel">Descrição</label>
                     <input class="textInput" type="text" v-model="packageForm.description" placeholder="Ex: Bagagem em excesso" />
                   </div>
+                  <div class="fieldGroup">
+                    <label class="fieldLabel">Quantidade de volumes</label>
+                    <input class="textInput" type="number" min="1" max="50" step="1" v-model.number="packageForm.quantity" />
+                  </div>
                   <div class="fieldRow">
                     <div class="fieldGroup">
-                      <label class="fieldLabel">Preço</label>
+                      <label class="fieldLabel">Preço (total do lote)</label>
                       <input class="textInput" type="number" min="0.01" step="0.01" v-model.number="packageForm.amount" />
                     </div>
                     <div class="fieldGroup">
@@ -661,6 +715,17 @@ onMounted(() => {
   padding: 8px 0;
 }
 
+.retryLink {
+  margin-left: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  color: #922877;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .packageList {
   display: flex;
   flex-direction: column;
@@ -692,6 +757,12 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.packageMeta {
+  font-size: 11px;
+  color: #922877;
+  font-weight: 600;
 }
 
 .packageAmount {
@@ -731,6 +802,10 @@ onMounted(() => {
 
 .iconBtn.cancel {
   background: #d33939;
+}
+
+.iconBtn.print {
+  background: #922877;
 }
 
 .overlay-enter-active,

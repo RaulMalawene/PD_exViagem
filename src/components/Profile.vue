@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { useToast } from '../composables/useToast'
 import { parseApiError } from '../utils/parseApiError'
+import { roleLabel as resolveRoleLabel } from '../utils/roles'
 import BaseInput from './BaseInput.vue'
 import Text from './Text.vue'
 
@@ -13,10 +14,7 @@ const router = useRouter()
 const user = computed(() => authStore.user)
 const isAdmin = computed(() => user.value?.role === 'admin')
 
-const roleLabel = computed(() => {
-  const map = { admin: 'Administrador', staff: 'Staff', driver: 'Motorista' }
-  return map[user.value?.role] ?? user.value?.role ?? ''
-})
+const roleLabel = computed(() => resolveRoleLabel(user.value?.role))
 
 const isOpen = ref(false)
 const isEditing = ref(false)
@@ -561,6 +559,17 @@ function handleLogout() {
 .card-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+@media (min-width: 768px) and (max-width: 1439px) {
+  .nameRole :deep(p) {
+    font-size: 13px !important;
+  }
+
+  .profileImg {
+    height: 26px;
+    width: 26px;
+  }
 }
 
 @media (max-width: 767px) {

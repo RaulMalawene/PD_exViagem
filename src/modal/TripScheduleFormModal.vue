@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useTripScheduleStore } from '../stores/tripScheduleStore'
 import { useRouteStore } from '../stores/routeStore'
 import { useToast } from '../composables/useToast'
+import { useDropdownOptions } from '../composables/useDropdownOptions'
 import { parseApiError } from '../utils/parseApiError'
 import BaseInput from '../components/BaseInput.vue'
 import InputDropDown from '../components/InputDropDown.vue'
@@ -15,6 +16,7 @@ const emit = defineEmits(['close'])
 
 const scheduleStore = useTripScheduleStore()
 const routeStore = useRouteStore()
+const loadOptions = useDropdownOptions()
 const { showToast } = useToast()
 
 const localSchedule = ref(props.schedule)
@@ -29,7 +31,7 @@ const dayOptions = [
   { id: 'sunday', name: 'Domingo' },
 ]
 
-const routeOptions = computed(() => routeStore.routes.map((r) => ({ id: r.id, name: r.name })))
+const routeOptions = computed(() => routeStore.options.map((r) => ({ id: r.id, name: r.name })))
 
 const form = ref({
   route_id: props.schedule?.route_id ?? '',
@@ -107,7 +109,7 @@ function handleClose() {
 }
 
 onMounted(() => {
-  routeStore.fetchRoutes({ per_page: 100 })
+  loadOptions(routeStore.fetchOptions())
 })
 </script>
 

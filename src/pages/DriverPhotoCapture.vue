@@ -1,7 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import imageCompression from 'browser-image-compression'
 import publicDriverPhotoService from '../services/publicDriverPhotoService'
 import { parseApiError } from '../utils/parseApiError'
 
@@ -36,6 +35,7 @@ async function onFileSelected(event) {
   errorMessage.value = ''
 
   try {
+    const { default: imageCompression } = await import('browser-image-compression')
     const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920 })
     const formData = new FormData()
     formData.append('photo', compressed, file.name)

@@ -11,6 +11,7 @@ import Text from '../../components/Text.vue'
 import Profile from '../../components/Profile.vue'
 import StatiscSimple from '../../components/StatiscSimple.vue'
 import TableBase from '../../components/TableBase.vue'
+import Pagination from '../../components/Pagination.vue'
 import IconText from '../../components/IconText.vue'
 import DateFilter from '../../components/filters/DateFilter.vue'
 import FilterDropDown from '../../components/filters/FilterDropDown.vue'
@@ -19,10 +20,11 @@ import CleanFilter from '../../components/CleanFilter.vue'
 const reportStore = useReportStore()
 const routeStore = useRouteStore()
 const { occupancy, loading } = storeToRefs(reportStore)
-const { routes } = storeToRefs(routeStore)
+const { options: routes } = storeToRefs(routeStore)
 const { showToast } = useToast()
 
 const downloadingPdf = ref(false)
+const downloadingExcel = ref(false)
 const filters = ref({ date_from: '', date_to: '', route_id: '' })
 const mobileFiltersOpen = ref(false)
 
@@ -39,7 +41,11 @@ const statusLabels = {
   delayed: 'Com atraso',
 }
 
-const headers = ['Data', 'Rota', 'Viatura', 'Lugares Vendidos', 'Capacidade', 'Ocupação', 'Estado']
+const headers = ['Data', 'Rota', 'Viatura', 'Lugares Vendidos', 'Capacidade', 'Ocupação', 'Receita MZN', 'Receita ZAR', 'Estado']
+
+function fmt(value) {
+  return Number(value ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 const rows = computed(() =>
   (occupancy.value.rows ?? []).map((t) => ({
@@ -50,6 +56,8 @@ const rows = computed(() =>
     seats_sold: t.seats_sold,
     capacity: t.capacity,
     occupancy: `${t.occupancy_rate}%`,
+    revenue_mzn: fmt(t.revenue_mzn),
+    revenue_zar: fmt(t.revenue_zar),
     status: statusLabels[t.status] ?? t.status,
   }))
 )
@@ -57,7 +65,7 @@ const rows = computed(() =>
 function buildParams(page = 1) {
   return {
     page,
-    per_page: 15,
+    per_page: 7,
     ...(filters.value.date_from ? { date_from: filters.value.date_from } : {}),
     ...(filters.value.date_to ? { date_to: filters.value.date_to } : {}),
     ...(filters.value.route_id ? { route_id: filters.value.route_id } : {}),
@@ -76,22 +84,6 @@ function goToPage(page) {
   if (page < 1 || page > occupancy.value.pagination.last_page) return
   fetchData(page)
 }
-
-const pageNumbers = computed(() => {
-  const current = occupancy.value.pagination.current_page
-  const last = occupancy.value.pagination.last_page
-  if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1)
-
-  const range = []
-  const start = Math.max(1, current - 2)
-  const end = Math.min(last, current + 2)
-
-  if (start > 1) { range.push(1); if (start > 2) range.push('...') }
-  for (let i = start; i <= end; i++) range.push(i)
-  if (end < last) { if (end < last - 1) range.push('...'); range.push(last) }
-
-  return range
-})
 
 let filterTimer = null
 watch(filters, () => {
@@ -123,9 +115,31 @@ async function downloadPdf() {
   }
 }
 
+async function downloadExcel() {
+  downloadingExcel.value = true
+  try {
+    const params = { ...buildParams(1) }
+    delete params.page
+    delete params.per_page
+    const blob = await reportStore.downloadOccupancyExcel(params)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'relatorio-ocupacao.xlsx'
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    downloadingExcel.value = false
+  }
+}
+
 onMounted(() => {
   fetchData()
-  routeStore.fetchRoutes({ per_page: 100 })
+  // fetchOptions e nao fetchRoutes: o segundo escreve na lista e na paginacao
+  // que o ecra de Rotas mostra. O catch evita o dropdown vazio sem explicacao.
+  routeStore.fetchOptions().catch((err) => showToast('error', parseApiError(err)))
 })
 </script>
 
@@ -163,6 +177,10 @@ onMounted(() => {
             <IconText icon="fi fi-rs-file-pdf" :txt="downloadingPdf ? 'A gerar...' : 'Exportar PDF'"
               color="#8B9B1A" background="#922877" />
           </div>
+          <div @click="downloadExcel">
+            <IconText icon="fi fi-rs-file-excel" :txt="downloadingExcel ? 'A gerar...' : 'Exportar Excel'"
+              color="#fff" background="#1D6F42" />
+          </div>
         </div>
       </div>
 
@@ -172,6 +190,10 @@ onMounted(() => {
         <StatiscSimple title="Capacidade total" :data="occupancy.summary?.total_capacity" />
         <StatiscSimple title="Taxa de ocupação"
           :data="occupancy.summary ? `${occupancy.summary.occupancy_rate}%` : null" />
+        <StatiscSimple title="Receita MZN"
+          :data="occupancy.summary ? fmt(occupancy.summary.total_revenue_mzn) : null" />
+        <StatiscSimple title="Receita ZAR"
+          :data="occupancy.summary ? fmt(occupancy.summary.total_revenue_zar) : null" />
       </div>
 
       <div class="table">
@@ -188,27 +210,7 @@ onMounted(() => {
         <template v-else>
           <TableBase :headers="headers" :rows="rows" :hide-actions="true" />
 
-          <div class="pagination" v-if="occupancy.pagination.last_page > 1">
-            <button class="pageBtn" :disabled="occupancy.pagination.current_page === 1"
-              @click="goToPage(occupancy.pagination.current_page - 1)">
-              <i class="fi fi-sr-angle-left" />
-            </button>
-
-            <template v-for="(page, i) in pageNumbers" :key="i">
-              <span v-if="page === '...'" class="pageEllipsis">&hellip;</span>
-              <button v-else class="pageNumBtn" :class="{ active: page === occupancy.pagination.current_page }"
-                @click="goToPage(page)">
-                {{ page }}
-              </button>
-            </template>
-
-            <button class="pageBtn" :disabled="occupancy.pagination.current_page === occupancy.pagination.last_page"
-              @click="goToPage(occupancy.pagination.current_page + 1)">
-              <i class="fi fi-sr-angle-right" />
-            </button>
-
-            <span class="pageInfo">{{ occupancy.pagination.total }} viagens</span>
-          </div>
+          <Pagination :pagination="occupancy.pagination" @change="goToPage" />
         </template>
       </div>
     </div>
@@ -343,72 +345,6 @@ header {
   font-size: 14px;
   color: #999;
   text-align: center;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-}
-
-.pageBtn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: #f0f0f0;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #555;
-  transition: background 0.15s;
-}
-
-.pageBtn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.pageBtn:not(:disabled):hover {
-  background: #e0e0e0;
-}
-
-.pageNumBtn {
-  min-width: 32px;
-  height: 32px;
-  padding: 0 8px;
-  border: none;
-  background: #f0f0f0;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  color: #555;
-  transition: background 0.15s;
-}
-
-.pageNumBtn:hover {
-  background: #e0e0e0;
-}
-
-.pageNumBtn.active {
-  background: #922877;
-  color: white;
-  font-weight: 600;
-}
-
-.pageEllipsis {
-  font-size: 13px;
-  color: #999;
-  padding: 0 4px;
-}
-
-.pageInfo {
-  font-size: 13px;
-  color: #999;
-  margin-left: 8px;
 }
 
 @media (min-width: 1024px) and (max-width: 1279px) {

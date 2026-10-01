@@ -1,4 +1,5 @@
 <script setup>
+<<<<<<< HEAD
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { usePublicBookingStore } from "../../stores/publicBookingStore";
@@ -6,14 +7,31 @@ import DatePicker from "../../components/DatePicker.vue";
 import heroBg from "../../assets/hero-boarding.png";
 import vanFleet from "../../assets/van-fleet.jpeg";
 import LogoPD from "../../assets/LogoPD.svg";
+=======
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { usePublicBookingStore } from '../../stores/publicBookingStore'
+import { parseApiError } from '../../utils/parseApiError'
+import DatePicker from '../../components/DatePicker.vue'
+>>>>>>> 2701ee5dd3bac048ea7efa2f5339ae2a799f562d
 
 const router = useRouter();
 const bookingStore = usePublicBookingStore();
 
+<<<<<<< HEAD
 const selectedRoute = ref("");
 const selectedDate = ref("");
 const routeOpen = ref(false);
 const dateOpen = ref(false);
+=======
+const loadingRoutes = ref(true)
+const loadError = ref(null)
+
+const selectedRoute = ref('')
+const selectedDate = ref('')
+const routeOpen = ref(false)
+const dateOpen = ref(false)
+>>>>>>> 2701ee5dd3bac048ea7efa2f5339ae2a799f562d
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -62,6 +80,7 @@ function openWhatsApp() {
 }
 
 onMounted(async () => {
+<<<<<<< HEAD
   document.addEventListener("click", closeAll);
   bookingStore.clearFlow();
   await bookingStore.fetchRoutes();
@@ -70,6 +89,37 @@ onMounted(async () => {
   }
 });
 onUnmounted(() => document.removeEventListener("click", closeAll));
+=======
+    document.addEventListener('click', closeAll)
+    // Chegar aqui e sempre o inicio de uma reserva nova (nunca um "voltar atras" dentro
+    // de um fluxo em curso - isso vai para /booking/results) - limpa o estado da reserva
+    // anterior para o token de sessao nao ser reaproveitado entre reservas diferentes.
+    // startNewFlow tambem limpa a marca de "ja pago", para quem volta a
+    // landing page poder fazer uma reserva nova.
+    bookingStore.startNewFlow()
+    await carregarRotas()
+})
+
+// Esta e a porta de entrada do cliente. Sem tratamento, uma API em baixo
+// mostrava um dropdown vazio e o cliente concluia que nao havia viagens.
+async function carregarRotas() {
+    loadingRoutes.value = true
+    loadError.value = null
+
+    try {
+        await bookingStore.fetchRoutes()
+
+        if (!selectedRoute.value && bookingStore.routes.length) {
+            selectedRoute.value = String(bookingStore.routes[0].id)
+        }
+    } catch (err) {
+        loadError.value = parseApiError(err)
+    } finally {
+        loadingRoutes.value = false
+    }
+}
+onUnmounted(() => document.removeEventListener('click', closeAll))
+>>>>>>> 2701ee5dd3bac048ea7efa2f5339ae2a799f562d
 </script>
 
 <template>
@@ -86,6 +136,7 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
       </div>
     </section>
 
+<<<<<<< HEAD
     <!-- SEARCH CARD -->
     <div class="cardWrap">
       <div class="searchCard">
@@ -116,6 +167,70 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
               </ul>
             </Transition>
           </div>
+=======
+        <!-- HERO -->
+        <section class="hero">
+            <div class="heroInner">
+                <span class="heroPill">Viaje com a Portador Diário</span>
+                <h1 class="heroTitle">Reserve a sua viagem</h1>
+                <p class="heroSub">Maputo <span class="heroArrow">⇄</span> Johannesburg</p>
+            </div>
+        </section>
+
+        <!-- SEARCH CARD -->
+        <div class="cardWrap">
+            <div class="searchCard">
+
+                <div class="field">
+                    <label class="fieldLabel">Rota</label>
+                    <div class="customSelect" :class="{ open: routeOpen, disabled: loadingRoutes || loadError }"
+                        @click.stop="!loadingRoutes && !loadError && (routeOpen = !routeOpen)">
+                        <i class="fi fi-rs-bus selectIcon" />
+                        <span v-if="loadingRoutes" class="selectValue muted">A carregar rotas...</span>
+                        <span v-else-if="loadError" class="selectValue muted">Rotas indisponíveis</span>
+                        <span v-else class="selectValue">{{ selectedRouteLabel }}</span>
+                        <i class="fi fi-rs-angle-small-down chevron" :class="{ rotated: routeOpen }" />
+                        <Transition name="dropdown">
+                            <ul v-if="routeOpen" class="dropdownList">
+                                <li v-for="r in bookingStore.routes" :key="r.id" class="dropdownItem"
+                                    :class="{ active: String(selectedRoute) === String(r.id) }"
+                                    @click.stop="selectRoute(String(r.id))">
+                                    {{ r.name }}
+                                </li>
+                            </ul>
+                        </Transition>
+                    </div>
+                </div>
+
+                <div v-if="loadError" class="searchError">
+                    <i class="fi fi-sr-exclamation" />
+                    <span>{{ loadError }}</span>
+                    <button class="searchRetry" @click.stop="carregarRotas">Voltar a tentar</button>
+                </div>
+
+                <div class="field">
+                    <label class="fieldLabel">Data de viagem</label>
+                    <div class="customSelect" :class="{ open: dateOpen }" @click.stop="dateOpen = !dateOpen">
+                        <i class="fi fi-rs-calendar selectIcon" />
+                        <span class="selectValue" :class="{ placeholder: !selectedDate }">{{ formattedDate }}</span>
+                        <i class="fi fi-rs-angle-small-down chevron" :class="{ rotated: dateOpen }" />
+                        <Transition name="dropdown">
+                            <DatePicker v-if="dateOpen" v-model="selectedDate" :min="today" :route-id="selectedRoute"
+                                @update:modelValue="dateOpen = false" />
+                        </Transition>
+                    </div>
+                </div>
+
+                <p class="scheduleNote">
+                    Viagens: Seg, Qua (MZQ→JHB) | Qua, Sex (JHB→MZQ)
+                </p>
+
+                <button class="searchBtn" :class="{ disabled: !selectedRoute }" @click="search">
+                    Pesquisar viagens
+                </button>
+
+            </div>
+>>>>>>> 2701ee5dd3bac048ea7efa2f5339ae2a799f562d
         </div>
 
         <div class="field">
@@ -475,6 +590,39 @@ onUnmounted(() => document.removeEventListener("click", closeAll));
 </template>
 
 <style scoped>
+.customSelect.disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.selectValue.muted {
+    color: #999;
+}
+
+.searchError {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: #FDECEA;
+    color: #C0392B;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+}
+
+.searchRetry {
+    margin-left: auto;
+    border: none;
+    background: #C0392B;
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
 .page {
   min-height: 100vh;
   background: #f6f6f6;

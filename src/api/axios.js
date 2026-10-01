@@ -36,6 +36,18 @@ api.interceptors.response.use(
       }
     }
 
+    // A API recusa tudo enquanto a password inicial nao for trocada. Sem tratar
+    // este 403 o utilizador via ecras de erro por todo o lado sem perceber que
+    // so tinha de definir uma password nova.
+    if (error.response?.status === 403 && error.response?.data?.must_change_password) {
+      const authStore = useAuthStore()
+      authStore.flagPasswordChange()
+
+      if (router.currentRoute.value.path !== '/definir-password') {
+        router.push('/definir-password')
+      }
+    }
+
     return Promise.reject(error)
   }
 )

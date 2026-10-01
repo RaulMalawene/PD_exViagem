@@ -41,12 +41,16 @@ const emit = defineEmits(['close'])
     align-items: center;
     justify-content: center;
     padding: 24px;
+    overflow-y: auto;
 }
 
+/* O bilhete precisa dos seus 620px para nao truncar nada - apertar aqui
+   espremia as celulas e cortava os valores com reticencias. */
 .cardWrap {
     width: 100%;
-    max-width: 360px;
+    max-width: 620px;
     position: relative;
+    margin: auto;
 }
 
 .closeBtn {

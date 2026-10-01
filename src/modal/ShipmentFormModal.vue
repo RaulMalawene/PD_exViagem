@@ -6,6 +6,7 @@ import { useTripStore } from '../stores/tripStore'
 import { useRouteStore } from '../stores/routeStore'
 import { useInvoiceStore } from '../stores/invoiceStore'
 import { useToast } from '../composables/useToast'
+import { useDropdownOptions } from '../composables/useDropdownOptions'
 import { parseApiError } from '../utils/parseApiError'
 import { formatDate } from '../utils/formatDate'
 import { routeAbbr } from '../utils/routeAbbr'
@@ -26,8 +27,9 @@ const shipmentStore = useShipmentStore()
 const tripStore = useTripStore()
 const routeStore = useRouteStore()
 const invoiceStore = useInvoiceStore()
-const { trips } = storeToRefs(tripStore)
-const { routes } = storeToRefs(routeStore)
+const loadOptions = useDropdownOptions()
+const { options: trips } = storeToRefs(tripStore)
+const { options: routes } = storeToRefs(routeStore)
 const { showToast } = useToast()
 
 const selectedRouteId = ref(props.shipment?.trip?.route?.id ?? '')
@@ -55,7 +57,7 @@ const statusOptions = [
 ]
 
 const paymentMethodOptions = [
-  { value: 'cash', label: 'Dinheiro' },
+  { value: 'cash', label: 'Numerário' },
   { value: 'pos', label: 'POS' },
   { value: 'deposit', label: 'Depósito' },
   { value: 'transfer_mz', label: 'Transferência (MZ)' },
@@ -227,8 +229,7 @@ function handleClose() {
 }
 
 onMounted(() => {
-  tripStore.fetchTrips({ per_page: 100 })
-  routeStore.fetchRoutes({ per_page: 100 })
+  loadOptions(tripStore.fetchOptions(), routeStore.fetchOptions())
 })
 </script>
 

@@ -148,7 +148,7 @@ input:focus {
   top: 100%;
   left: 0;
   width: 100%;
-  max-height: 200px;
+  max-height: 240px;
   background: #F0F0F0;
   z-index: 9999;
   overflow-y: auto;
@@ -162,11 +162,17 @@ input:focus {
 
 .Single {
   flex-shrink: 0;
-  height: 40px;
+  min-height: 46px;
   display: flex;
   align-items: center;
-  padding-left: 12px;
+  padding: 10px 12px;
   cursor: pointer;
+  transition: background 0.15s;
+}
+
+/* Sem separador as opcoes coladas liam-se como um bloco unico. */
+.Single + .Single {
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
 }
 
 .Single:hover {

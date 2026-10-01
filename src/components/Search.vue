@@ -54,6 +54,19 @@ input {
   font-size: 13px;
 }
 
+@media (min-width: 768px) and (max-width: 1279px) {
+  input {
+    height: 38px;
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  input {
+    font-size: 14px;
+  }
+}
+
 @media (max-width: 767px) {
   .searchWrapper {
     width: 100%;
@@ -61,6 +74,11 @@ input {
 
   .inputWrapper {
     width: 100%;
+  }
+
+  input {
+    height: 38px;
+    font-size: 13px;
   }
 }
 </style>

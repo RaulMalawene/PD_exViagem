@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useStopStore } from '../stores/stopStore'
 import { useToast } from '../composables/useToast'
+import { useDropdownOptions } from '../composables/useDropdownOptions'
 import { parseApiError } from '../utils/parseApiError'
 import TableBase from '../components/TableBase.vue'
 import IconText from '../components/IconText.vue'
@@ -15,6 +16,7 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const stopStore = useStopStore()
+const loadOptions = useDropdownOptions()
 const { stops, loading } = storeToRefs(stopStore)
 const { showToast } = useToast()
 
@@ -47,7 +49,8 @@ const nextOrder = computed(() => {
 })
 
 async function fetchData() {
-  await stopStore.fetchStops(props.route.id)
+  // Sem isto, uma falha da API fazia a rota parecer nao ter paragens nenhumas.
+  await loadOptions(stopStore.fetchStops(props.route.id))
 }
 
 function openCreate() {

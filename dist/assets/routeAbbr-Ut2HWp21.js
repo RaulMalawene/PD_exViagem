@@ -1,1 +1,0 @@
-const t={maputo:"MPT",johannesburg:"JHB"};function e(r){if(!r)return"--";const n=r.trim().toLowerCase();return t[n]?t[n]:r.trim().slice(0,3).toUpperCase()}function o(r){return r?`${e(r.origin)}->${e(r.destination)}`:"--"}export{o as r};

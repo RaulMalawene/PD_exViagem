@@ -55,4 +55,28 @@ defineProps({
 .fakebutton.selected i {
   color: #8B9B1A;
 }
+
+@media (max-width: 1279px) {
+  .fakebutton {
+    height: 40px;
+    padding: 12px;
+    padding-left: 18px;
+    gap: 8px;
+  }
+
+  .fakebutton :deep(p) {
+    font-size: 13px !important;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .fakebutton {
+    height: 42px;
+    padding-left: 22px;
+  }
+
+  .fakebutton :deep(p) {
+    font-size: 14px !important;
+  }
+}
 </style>

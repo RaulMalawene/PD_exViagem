@@ -8,6 +8,7 @@ export default {
   confirm: (id, payload = {}) => api.post(`/bookings/${id}/confirm`, payload).then((r) => r.data),
   cancel: (id, notes) => api.post(`/bookings/${id}/cancel`, { notes }).then((r) => r.data),
   updatePayment: (id, payload) => api.patch(`/bookings/${id}/payment`, payload).then((r) => r.data),
+  ticketPdf: (id) => api.get(`/bookings/${id}/ticket-pdf`, { responseType: 'blob' }).then((r) => r.data),
   listPackages: (id) => api.get(`/bookings/${id}/packages`).then((r) => r.data),
   createPackage: (id, payload) => api.post(`/bookings/${id}/packages`, payload).then((r) => r.data),
   sendWhatsapp: (id, phone, imageBlob) => {

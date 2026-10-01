@@ -2,6 +2,7 @@
 import { ref, computed, watch, watchEffect } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { ROLE_ADMIN, ROLE_MANAGER } from '../utils/roles'
 import Logo from '../assets/logoPD.svg'
 import IconTextButton from '../components/IconTextButton.vue'
 import IconText from '../components/IconText.vue'
@@ -12,9 +13,8 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const role = computed(() => authStore.user?.role)
-const isAdmin = computed(() => role.value === 'admin')
-const isStaff = computed(() => role.value === 'staff')
-const isDriver = computed(() => role.value === 'driver')
+const isAdmin = computed(() => role.value === ROLE_ADMIN)
+const isManager = computed(() => role.value === ROLE_MANAGER)
 
 const adminMenu = [
   { txt: 'Dashboard', icon: 'fi fi-rs-home', route: '/dashboard/home' },
@@ -31,6 +31,7 @@ const adminMenu = [
       { txt: 'Motoristas', icon: 'fi fi-rs-user-helmet-safety', route: '/dashboard/drivers' },
       { txt: 'Ajudantes', icon: 'fi fi-rs-user-helmet-safety', route: '/dashboard/helpers' },
       { txt: 'Utilizadores', icon: 'fi fi-rs-users', route: '/dashboard/users' },
+      { txt: 'Auditoria', icon: 'fi fi-rs-time-past', route: '/dashboard/audit-logs' },
     ],
   },
   {
@@ -39,13 +40,12 @@ const adminMenu = [
     items: [
       { txt: 'Ocupação por Viagem', icon: 'fi fi-rs-bus', route: '/dashboard/reports/occupancy' },
       { txt: 'Financeiro', icon: 'fi fi-rs-money-bill-wave', route: '/dashboard/reports/financial' },
-      { txt: 'Cancelamentos', icon: 'fi fi-rs-circle-xmark', route: '/dashboard/reports/cancellations' },
       { txt: 'Descontos Aplicados', icon: 'fi fi-rs-badge-percent', route: '/dashboard/reports/discounts' },
     ],
   },
 ]
 
-const staffMenu = [
+const managerMenu = [
   { txt: 'Dashboard', icon: 'fi fi-rs-home', route: '/dashboard/home' },
   { txt: 'Reservas', icon: 'fi fi-rs-ticket', route: '/dashboard/bookings' },
   { txt: 'Mercadorias', icon: 'fi fi-rs-box-open', route: '/dashboard/shipments' },
@@ -56,20 +56,21 @@ const staffMenu = [
     items: [
       { txt: 'Ocupação por Viagem', icon: 'fi fi-rs-bus', route: '/dashboard/reports/occupancy' },
       { txt: 'Financeiro', icon: 'fi fi-rs-money-bill-wave', route: '/dashboard/reports/financial' },
-      { txt: 'Cancelamentos', icon: 'fi fi-rs-circle-xmark', route: '/dashboard/reports/cancellations' },
       { txt: 'Descontos Aplicados', icon: 'fi fi-rs-badge-percent', route: '/dashboard/reports/discounts' },
     ],
   },
 ]
 
-const driverMenu = [
-  { txt: 'Dashboard', icon: 'fi fi-rs-home', route: '/dashboard/home' },
+// O agente de campo vende bilhetes, cobra e regista bagagens — tudo dentro
+// das Reservas. Nao ve mais nada.
+const fieldAgentMenu = [
+  { txt: 'Reservas', icon: 'fi fi-rs-ticket', route: '/dashboard/bookings' },
 ]
 
 const menuItems = computed(() => {
   if (isAdmin.value) return adminMenu
-  if (isStaff.value) return staffMenu
-  return driverMenu
+  if (isManager.value) return managerMenu
+  return fieldAgentMenu
 })
 
 const mobileOpen = ref(false)
@@ -391,6 +392,30 @@ nav {
     flex: 1;
     height: auto;
     padding: 16px;
+  }
+}
+
+@media (max-width: 1279px) {
+  .groupHeader {
+    height: 40px;
+    padding: 12px;
+    padding-left: 18px;
+    gap: 8px;
+  }
+
+  .groupHeader :deep(p) {
+    font-size: 13px !important;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .groupHeader {
+    height: 42px;
+    padding-left: 22px;
+  }
+
+  .groupHeader :deep(p) {
+    font-size: 14px !important;
   }
 }
 

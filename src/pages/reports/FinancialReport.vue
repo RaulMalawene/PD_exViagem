@@ -10,6 +10,7 @@ import Text from '../../components/Text.vue'
 import Profile from '../../components/Profile.vue'
 import StatiscSimple from '../../components/StatiscSimple.vue'
 import TableBase from '../../components/TableBase.vue'
+import Pagination from '../../components/Pagination.vue'
 import IconText from '../../components/IconText.vue'
 import DateFilter from '../../components/filters/DateFilter.vue'
 import FilterDropDown from '../../components/filters/FilterDropDown.vue'
@@ -21,6 +22,9 @@ const { financial, loading } = storeToRefs(reportStore)
 const { showToast } = useToast()
 
 const downloadingPdf = ref(false)
+const downloadingExcel = ref(false)
+// Fechado por omissao: as estatisticas empurravam a tabela para fora do ecra.
+const breakdownsOpen = ref(false)
 const filters = ref({ date_from: '', date_to: '', category: '', search: '' })
 const mobileFiltersOpen = ref(false)
 const hasFilters = computed(() =>
@@ -37,7 +41,7 @@ const categoryOptions = [
 ]
 
 const paymentMethodLabels = {
-  cash: 'Dinheiro',
+  cash: 'Numerário',
   transfer_mz: 'Transferência (MZ)',
   transfer_za: 'Transferência (ZA)',
   card: 'Cartão',
@@ -51,24 +55,16 @@ function fmt(v) {
   return Number(v ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const categoryRows = computed(() => {
-  if (!financial.value.byCategory) return []
-  return Object.values(financial.value.byCategory).filter((c) => c.count > 0)
-})
+const categoryGroups = computed(() => financial.value.byRouteCategory ?? [])
 
-const paymentMethodRows = computed(() => {
-  if (!financial.value.byPaymentMethod) return []
-  return Object.entries(financial.value.byPaymentMethod)
-    .map(([method, values]) => ({ method, label: paymentMethodLabels[method] ?? method, ...values }))
-    .filter((m) => m.mzn > 0 || m.zar > 0)
-})
+const paymentGroups = computed(() => financial.value.byRoutePayment ?? [])
 
 const routeRows = computed(() => {
   if (!financial.value.byRoute) return []
   return Object.values(financial.value.byRoute).filter((r) => r.count > 0)
 })
 
-const headers = ['Data', 'Referência', 'Cliente', 'Rota', 'Tipo', 'Desconto', 'Valor Pago', 'Método', 'Processado por']
+const headers = ['Data de pagamento', 'Referência', 'Cliente', 'Rota', 'Tipo', 'Desconto', 'Valor Pago', 'Método', 'Processado por']
 
 const rows = computed(() =>
   (financial.value.rows ?? []).map((r) => ({
@@ -88,7 +84,7 @@ const rows = computed(() =>
 function buildParams(page = 1) {
   return {
     page,
-    per_page: 15,
+    per_page: 7,
     ...(filters.value.date_from ? { date_from: filters.value.date_from } : {}),
     ...(filters.value.date_to ? { date_to: filters.value.date_to } : {}),
     ...(filters.value.category ? { category: filters.value.category } : {}),
@@ -108,22 +104,6 @@ function goToPage(page) {
   if (page < 1 || page > financial.value.pagination.last_page) return
   fetchData(page)
 }
-
-const pageNumbers = computed(() => {
-  const current = financial.value.pagination.current_page
-  const last = financial.value.pagination.last_page
-  if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1)
-
-  const range = []
-  const start = Math.max(1, current - 2)
-  const end = Math.min(last, current + 2)
-
-  if (start > 1) { range.push(1); if (start > 2) range.push('...') }
-  for (let i = start; i <= end; i++) range.push(i)
-  if (end < last) { if (end < last - 1) range.push('...'); range.push(last) }
-
-  return range
-})
 
 let filterTimer = null
 watch(filters, () => {
@@ -155,6 +135,26 @@ async function downloadPdf() {
   }
 }
 
+async function downloadExcel() {
+  downloadingExcel.value = true
+  try {
+    const params = { ...buildParams(1) }
+    delete params.page
+    delete params.per_page
+    const blob = await reportStore.downloadFinancialExcel(params)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'relatorio-financeiro.xlsx'
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    showToast('error', parseApiError(err))
+  } finally {
+    downloadingExcel.value = false
+  }
+}
+
 onMounted(() => fetchData())
 </script>
 
@@ -175,6 +175,10 @@ onMounted(() => fetchData())
             <IconText icon="fi fi-rs-file-pdf" :txt="downloadingPdf ? 'A gerar...' : 'Exportar PDF'"
               color="#8B9B1A" background="#922877" />
           </div>
+          <div @click="downloadExcel">
+            <IconText icon="fi fi-rs-file-excel" :txt="downloadingExcel ? 'A gerar...' : 'Exportar Excel'"
+              color="#fff" background="#1D6F42" />
+          </div>
         </div>
       </div>
 
@@ -188,8 +192,8 @@ onMounted(() => fetchData())
       <div class="filtersRow" :class="{ mobileOpen: mobileFiltersOpen }">
         <div class="filters">
           <div class="dates">
-            <DateFilter txt="De" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_from" />
-            <DateFilter txt="Até" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_to" />
+            <DateFilter txt="Pago de" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_from" />
+            <DateFilter txt="Pago até" icon="fi fi-sr-calendar" color="#922877" v-model="filters.date_to" />
           </div>
 
           <div class="dropdowns">
@@ -206,44 +210,90 @@ onMounted(() => fetchData())
         <StatiscSimple title="Total ZAR" :data="financial.total ? fmt(financial.total.zar) : null" />
       </div>
 
-      <div class="breakdowns" v-if="!loading && (categoryRows.length || paymentMethodRows.length || routeRows.length)">
-        <div class="breakdownCard" v-if="categoryRows.length">
+      <button
+        v-if="!loading && (categoryGroups.length || paymentGroups.length || routeRows.length)"
+        class="breakdownsToggle"
+        @click="breakdownsOpen = !breakdownsOpen"
+      >
+        <i class="fi fi-rs-chart-histogram" />
+        <span>Estatísticas detalhadas</span>
+        <i class="fi fi-rs-angle-small-down toggleChevron" :class="{ rotated: breakdownsOpen }" />
+      </button>
+
+      <div class="breakdowns" v-if="breakdownsOpen && !loading && (categoryGroups.length || paymentGroups.length || routeRows.length)">
+        <div class="breakdownCard" v-if="categoryGroups.length">
           <span class="breakdownTitle">Por Tipo</span>
           <table class="reportTable">
             <thead>
               <tr>
-                <th>Tipo</th>
+                <th>Rota / Tipo</th>
                 <th>Nº</th>
                 <th>MZN</th>
                 <th>ZAR</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="c in categoryRows" :key="c.label">
-                <td>{{ c.label }}</td>
-                <td>{{ c.count }}</td>
-                <td>{{ fmt(c.mzn) }}</td>
-                <td>{{ fmt(c.zar) }}</td>
+              <template v-for="g in categoryGroups" :key="g.route">
+                <tr class="groupRow">
+                  <td colspan="4">{{ g.route }}</td>
+                </tr>
+                <tr v-for="c in g.rows" :key="`${g.route}-${c.label}`">
+                  <td class="indented">{{ c.label }}</td>
+                  <td>{{ c.count }}</td>
+                  <td>{{ fmt(c.mzn) }}</td>
+                  <td>{{ fmt(c.zar) }}</td>
+                </tr>
+                <tr class="subtotalRow">
+                  <td class="indented">Subtotal</td>
+                  <td>{{ g.subtotal.count }}</td>
+                  <td>{{ fmt(g.subtotal.mzn) }}</td>
+                  <td>{{ fmt(g.subtotal.zar) }}</td>
+                </tr>
+              </template>
+              <tr class="totalRow">
+                <td>TOTAL</td>
+                <td>{{ financial.total?.count ?? 0 }}</td>
+                <td>{{ fmt(financial.total?.mzn) }}</td>
+                <td>{{ fmt(financial.total?.zar) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div class="breakdownCard" v-if="paymentMethodRows.length">
+        <div class="breakdownCard" v-if="paymentGroups.length">
           <span class="breakdownTitle">Por Método de Pagamento</span>
           <table class="reportTable">
             <thead>
               <tr>
-                <th>Método</th>
+                <th>Rota / Método</th>
+                <th>Nº</th>
                 <th>MZN</th>
                 <th>ZAR</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="m in paymentMethodRows" :key="m.method">
-                <td>{{ m.label }}</td>
-                <td>{{ fmt(m.mzn) }}</td>
-                <td>{{ fmt(m.zar) }}</td>
+              <template v-for="g in paymentGroups" :key="g.route">
+                <tr class="groupRow">
+                  <td colspan="4">{{ g.route }}</td>
+                </tr>
+                <tr v-for="m in g.rows" :key="`${g.route}-${m.label}`">
+                  <td class="indented">{{ m.label }}</td>
+                  <td>{{ m.count }}</td>
+                  <td>{{ fmt(m.mzn) }}</td>
+                  <td>{{ fmt(m.zar) }}</td>
+                </tr>
+                <tr class="subtotalRow">
+                  <td class="indented">Subtotal</td>
+                  <td>{{ g.subtotal.count }}</td>
+                  <td>{{ fmt(g.subtotal.mzn) }}</td>
+                  <td>{{ fmt(g.subtotal.zar) }}</td>
+                </tr>
+              </template>
+              <tr class="totalRow">
+                <td>TOTAL</td>
+                <td>{{ financial.total?.count ?? 0 }}</td>
+                <td>{{ fmt(financial.total?.mzn) }}</td>
+                <td>{{ fmt(financial.total?.zar) }}</td>
               </tr>
             </tbody>
           </table>
@@ -267,6 +317,12 @@ onMounted(() => fetchData())
                 <td>{{ fmt(r.mzn) }}</td>
                 <td>{{ fmt(r.zar) }}</td>
               </tr>
+              <tr class="totalRow">
+                <td>TOTAL</td>
+                <td>{{ financial.total?.count ?? 0 }}</td>
+                <td>{{ fmt(financial.total?.mzn) }}</td>
+                <td>{{ fmt(financial.total?.zar) }}</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -286,27 +342,7 @@ onMounted(() => fetchData())
         <template v-else>
           <TableBase :headers="headers" :rows="rows" :hide-actions="true" />
 
-          <div class="pagination" v-if="financial.pagination.last_page > 1">
-            <button class="pageBtn" :disabled="financial.pagination.current_page === 1"
-              @click="goToPage(financial.pagination.current_page - 1)">
-              <i class="fi fi-sr-angle-left" />
-            </button>
-
-            <template v-for="(page, i) in pageNumbers" :key="i">
-              <span v-if="page === '...'" class="pageEllipsis">&hellip;</span>
-              <button v-else class="pageNumBtn" :class="{ active: page === financial.pagination.current_page }"
-                @click="goToPage(page)">
-                {{ page }}
-              </button>
-            </template>
-
-            <button class="pageBtn" :disabled="financial.pagination.current_page === financial.pagination.last_page"
-              @click="goToPage(financial.pagination.current_page + 1)">
-              <i class="fi fi-sr-angle-right" />
-            </button>
-
-            <span class="pageInfo">{{ financial.pagination.total }} facturas</span>
-          </div>
+          <Pagination :pagination="financial.pagination" @change="goToPage" />
         </template>
       </div>
     </div>
@@ -352,6 +388,44 @@ header {
 
 .filtersToggle {
   display: none;
+}
+
+.breakdownsToggle {
+  margin-top: 20px;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #221F20;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.breakdownsToggle:hover {
+  background: #FAFAFA;
+  border-color: #922877;
+}
+
+.breakdownsToggle > i:first-child {
+  color: #922877;
+}
+
+.breakdownsToggle .toggleChevron {
+  font-size: 11px;
+  color: #999;
+  transition: transform 0.2s;
+}
+
+.breakdownsToggle .toggleChevron.rotated {
+  transform: rotate(180deg);
 }
 
 .filtersRow {
@@ -410,7 +484,7 @@ header {
 }
 
 .breakdowns {
-  margin-top: 24px;
+  margin-top: 12px;
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
@@ -467,6 +541,30 @@ header {
   text-align: left;
 }
 
+.reportTable tr.groupRow td {
+  font-weight: 700;
+  color: #922877;
+  background: #faf6f9;
+  padding-top: 10px;
+}
+
+.reportTable tr.subtotalRow td {
+  font-style: italic;
+  color: #777;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.reportTable tr.totalRow td {
+  font-weight: 700;
+  color: #221F20;
+  background: #f5f5f5;
+  border-bottom: none;
+}
+
+.reportTable td.indented {
+  padding-left: 20px;
+}
+
 .table {
   margin-top: 24px;
   width: 100%;
@@ -511,72 +609,6 @@ header {
   font-size: 14px;
   color: #999;
   text-align: center;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-}
-
-.pageBtn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: #f0f0f0;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #555;
-  transition: background 0.15s;
-}
-
-.pageBtn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.pageBtn:not(:disabled):hover {
-  background: #e0e0e0;
-}
-
-.pageNumBtn {
-  min-width: 32px;
-  height: 32px;
-  padding: 0 8px;
-  border: none;
-  background: #f0f0f0;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  color: #555;
-  transition: background 0.15s;
-}
-
-.pageNumBtn:hover {
-  background: #e0e0e0;
-}
-
-.pageNumBtn.active {
-  background: #922877;
-  color: white;
-  font-weight: 600;
-}
-
-.pageEllipsis {
-  font-size: 13px;
-  color: #999;
-  padding: 0 4px;
-}
-
-.pageInfo {
-  font-size: 13px;
-  color: #999;
-  margin-left: 8px;
 }
 
 @media (min-width: 1024px) and (max-width: 1279px) {
