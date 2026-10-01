@@ -1,37 +1,26 @@
 <script setup>
-<<<<<<< HEAD
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { usePublicBookingStore } from "../../stores/publicBookingStore";
+import { parseApiError } from "../../utils/parseApiError";
 import DatePicker from "../../components/DatePicker.vue";
 import heroBg from "../../assets/hero-boarding.png";
 import vanFleet from "../../assets/van-fleet.jpeg";
 import LogoPD from "../../assets/LogoPD.svg";
-=======
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { usePublicBookingStore } from '../../stores/publicBookingStore'
-import { parseApiError } from '../../utils/parseApiError'
-import DatePicker from '../../components/DatePicker.vue'
->>>>>>> 2701ee5dd3bac048ea7efa2f5339ae2a799f562d
+import whatsappIcon from "../../assets/whatsapp.png";
+import gmailIcon from "../../assets/gmail.png";
+import ticketIcon from "../../assets/ticket.png";
 
 const router = useRouter();
 const bookingStore = usePublicBookingStore();
 
-<<<<<<< HEAD
+const loadingRoutes = ref(true);
+const loadError = ref(null);
+
 const selectedRoute = ref("");
 const selectedDate = ref("");
 const routeOpen = ref(false);
 const dateOpen = ref(false);
-=======
-const loadingRoutes = ref(true)
-const loadError = ref(null)
-
-const selectedRoute = ref('')
-const selectedDate = ref('')
-const routeOpen = ref(false)
-const dateOpen = ref(false)
->>>>>>> 2701ee5dd3bac048ea7efa2f5339ae2a799f562d
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -69,57 +58,46 @@ function closeAll() {
   dateOpen.value = false;
 }
 
-function openWhatsApp() {
-  const numero = "258862051706";
-  const mensagem =
-    "Olá, gostaria de ter mais informações sobre as viagens da Portador Diário.";
-  window.open(
-    "https://wa.me/" + numero + "?text=" + encodeURIComponent(mensagem),
-    "_blank",
+const whatsappUrl =
+  "https://wa.me/258862051706?text=" +
+  encodeURIComponent(
+    "Olá, gostaria de ter mais informações sobre as viagens da Portador Diário.",
   );
+
+function openWhatsApp() {
+  window.open(whatsappUrl, "_blank");
 }
 
 onMounted(async () => {
-<<<<<<< HEAD
   document.addEventListener("click", closeAll);
-  bookingStore.clearFlow();
-  await bookingStore.fetchRoutes();
-  if (!selectedRoute.value && bookingStore.routes.length) {
-    selectedRoute.value = String(bookingStore.routes[0].id);
-  }
+  // Chegar aqui e sempre o inicio de uma reserva nova (nunca um "voltar atras" dentro
+  // de um fluxo em curso - isso vai para /booking/results) - limpa o estado da reserva
+  // anterior para o token de sessao nao ser reaproveitado entre reservas diferentes.
+  // startNewFlow tambem limpa a marca de "ja pago", para quem volta a
+  // landing page poder fazer uma reserva nova.
+  bookingStore.startNewFlow();
+  await carregarRotas();
 });
-onUnmounted(() => document.removeEventListener("click", closeAll));
-=======
-    document.addEventListener('click', closeAll)
-    // Chegar aqui e sempre o inicio de uma reserva nova (nunca um "voltar atras" dentro
-    // de um fluxo em curso - isso vai para /booking/results) - limpa o estado da reserva
-    // anterior para o token de sessao nao ser reaproveitado entre reservas diferentes.
-    // startNewFlow tambem limpa a marca de "ja pago", para quem volta a
-    // landing page poder fazer uma reserva nova.
-    bookingStore.startNewFlow()
-    await carregarRotas()
-})
 
 // Esta e a porta de entrada do cliente. Sem tratamento, uma API em baixo
 // mostrava um dropdown vazio e o cliente concluia que nao havia viagens.
 async function carregarRotas() {
-    loadingRoutes.value = true
-    loadError.value = null
+  loadingRoutes.value = true;
+  loadError.value = null;
 
-    try {
-        await bookingStore.fetchRoutes()
+  try {
+    await bookingStore.fetchRoutes();
 
-        if (!selectedRoute.value && bookingStore.routes.length) {
-            selectedRoute.value = String(bookingStore.routes[0].id)
-        }
-    } catch (err) {
-        loadError.value = parseApiError(err)
-    } finally {
-        loadingRoutes.value = false
+    if (!selectedRoute.value && bookingStore.routes.length) {
+      selectedRoute.value = String(bookingStore.routes[0].id);
     }
+  } catch (err) {
+    loadError.value = parseApiError(err);
+  } finally {
+    loadingRoutes.value = false;
+  }
 }
-onUnmounted(() => document.removeEventListener('click', closeAll))
->>>>>>> 2701ee5dd3bac048ea7efa2f5339ae2a799f562d
+onUnmounted(() => document.removeEventListener("click", closeAll));
 </script>
 
 <template>
@@ -136,7 +114,6 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
       </div>
     </section>
 
-<<<<<<< HEAD
     <!-- SEARCH CARD -->
     <div class="cardWrap">
       <div class="searchCard">
@@ -144,11 +121,13 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
           <label class="fieldLabel">Rota</label>
           <div
             class="customSelect"
-            :class="{ open: routeOpen }"
-            @click.stop="routeOpen = !routeOpen"
+            :class="{ open: routeOpen, disabled: loadingRoutes || loadError }"
+            @click.stop="!loadingRoutes && !loadError && (routeOpen = !routeOpen)"
           >
             <i class="fi fi-rs-bus selectIcon" />
-            <span class="selectValue">{{ selectedRouteLabel }}</span>
+            <span v-if="loadingRoutes" class="selectValue muted">A carregar rotas...</span>
+            <span v-else-if="loadError" class="selectValue muted">Rotas indisponíveis</span>
+            <span v-else class="selectValue">{{ selectedRouteLabel }}</span>
             <i
               class="fi fi-rs-angle-small-down chevron"
               :class="{ rotated: routeOpen }"
@@ -167,70 +146,12 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
               </ul>
             </Transition>
           </div>
-=======
-        <!-- HERO -->
-        <section class="hero">
-            <div class="heroInner">
-                <span class="heroPill">Viaje com a Portador Diário</span>
-                <h1 class="heroTitle">Reserve a sua viagem</h1>
-                <p class="heroSub">Maputo <span class="heroArrow">⇄</span> Johannesburg</p>
-            </div>
-        </section>
+        </div>
 
-        <!-- SEARCH CARD -->
-        <div class="cardWrap">
-            <div class="searchCard">
-
-                <div class="field">
-                    <label class="fieldLabel">Rota</label>
-                    <div class="customSelect" :class="{ open: routeOpen, disabled: loadingRoutes || loadError }"
-                        @click.stop="!loadingRoutes && !loadError && (routeOpen = !routeOpen)">
-                        <i class="fi fi-rs-bus selectIcon" />
-                        <span v-if="loadingRoutes" class="selectValue muted">A carregar rotas...</span>
-                        <span v-else-if="loadError" class="selectValue muted">Rotas indisponíveis</span>
-                        <span v-else class="selectValue">{{ selectedRouteLabel }}</span>
-                        <i class="fi fi-rs-angle-small-down chevron" :class="{ rotated: routeOpen }" />
-                        <Transition name="dropdown">
-                            <ul v-if="routeOpen" class="dropdownList">
-                                <li v-for="r in bookingStore.routes" :key="r.id" class="dropdownItem"
-                                    :class="{ active: String(selectedRoute) === String(r.id) }"
-                                    @click.stop="selectRoute(String(r.id))">
-                                    {{ r.name }}
-                                </li>
-                            </ul>
-                        </Transition>
-                    </div>
-                </div>
-
-                <div v-if="loadError" class="searchError">
-                    <i class="fi fi-sr-exclamation" />
-                    <span>{{ loadError }}</span>
-                    <button class="searchRetry" @click.stop="carregarRotas">Voltar a tentar</button>
-                </div>
-
-                <div class="field">
-                    <label class="fieldLabel">Data de viagem</label>
-                    <div class="customSelect" :class="{ open: dateOpen }" @click.stop="dateOpen = !dateOpen">
-                        <i class="fi fi-rs-calendar selectIcon" />
-                        <span class="selectValue" :class="{ placeholder: !selectedDate }">{{ formattedDate }}</span>
-                        <i class="fi fi-rs-angle-small-down chevron" :class="{ rotated: dateOpen }" />
-                        <Transition name="dropdown">
-                            <DatePicker v-if="dateOpen" v-model="selectedDate" :min="today" :route-id="selectedRoute"
-                                @update:modelValue="dateOpen = false" />
-                        </Transition>
-                    </div>
-                </div>
-
-                <p class="scheduleNote">
-                    Viagens: Seg, Qua (MZQ→JHB) | Qua, Sex (JHB→MZQ)
-                </p>
-
-                <button class="searchBtn" :class="{ disabled: !selectedRoute }" @click="search">
-                    Pesquisar viagens
-                </button>
-
-            </div>
->>>>>>> 2701ee5dd3bac048ea7efa2f5339ae2a799f562d
+        <div v-if="loadError" class="searchError">
+          <i class="fi fi-sr-exclamation" />
+          <span>{{ loadError }}</span>
+          <button class="searchRetry" @click.stop="carregarRotas">Voltar a tentar</button>
         </div>
 
         <div class="field">
@@ -278,16 +199,22 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
     <div class="trust">
       <div class="trustInner">
         <div class="trustItem">
-          <i class="fi fi-rs-comment trustIcon" />
-          <span class="trustLabel">Bilhete por WhatsApp</span>
+          <span class="trustIconWrap brand">
+            <img :src="whatsappIcon" alt="" class="trustImg" />
+          </span>
+          <span class="trustLabel">Bilhete por <strong>WhatsApp</strong></span>
         </div>
         <div class="trustItem">
-          <i class="fi fi-rs-lock trustIcon" />
-          <span class="trustLabel">Pagamento seguro</span>
+          <span class="trustIconWrap">
+            <i class="fi fi-rs-lock trustIcon" />
+          </span>
+          <span class="trustLabel">Pagamento <strong>seguro</strong></span>
         </div>
         <div class="trustItem">
-          <i class="fi fi-rs-headset trustIcon" />
-          <span class="trustLabel">Suporte 24h</span>
+          <span class="trustIconWrap">
+            <i class="fi fi-rs-headset trustIcon" />
+          </span>
+          <span class="trustLabel">Suporte <strong>24h</strong></span>
         </div>
       </div>
     </div>
@@ -316,8 +243,8 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
           <div class="stepConnector" />
           <div class="step">
             <div class="stepNum">2</div>
-            <div class="stepIconWrap">
-              <i class="fi fi-rs-ticket stepIcon" />
+            <div class="stepIconWrap ticket">
+              <img :src="ticketIcon" alt="" class="stepImg" />
             </div>
             <h3 class="stepTitle">Reserve</h3>
             <p class="stepDesc">
@@ -534,36 +461,44 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
           questões.
         </p>
         <div class="contactCards">
-          <div class="contactCard" @click="openWhatsApp">
-            <div class="contactIconWrap whatsapp">
-              <i class="fi fi-rs-comment contactIcon" />
+          <a
+            class="contactCard"
+            :href="whatsappUrl"
+            target="_blank"
+            rel="noopener"
+          >
+            <div class="contactIconWrap">
+              <img :src="whatsappIcon" alt="" class="contactImg" />
             </div>
             <div class="contactText">
               <span class="contactLabel">WhatsApp</span>
               <span class="contactValue">+258 86 205 1706</span>
+              <span class="contactCta">Iniciar conversa</span>
             </div>
             <i class="fi fi-rs-angle-right contactArrow" />
-          </div>
-          <div class="contactCard">
-            <div class="contactIconWrap email">
-              <i class="fi fi-rs-envelope contactIcon" />
+          </a>
+          <a class="contactCard" href="mailto:info@portadordiario.co.mz">
+            <div class="contactIconWrap">
+              <img :src="gmailIcon" alt="" class="contactImg" />
             </div>
             <div class="contactText">
               <span class="contactLabel">Email</span>
               <span class="contactValue">info@portadordiario.co.mz</span>
+              <span class="contactCta">Enviar email</span>
             </div>
             <i class="fi fi-rs-angle-right contactArrow" />
-          </div>
-          <div class="contactCard">
-            <div class="contactIconWrap phone">
+          </a>
+          <a class="contactCard" href="tel:+258821208151">
+            <div class="contactIconWrap">
               <i class="fi fi-rs-phone-call contactIcon" />
             </div>
             <div class="contactText">
               <span class="contactLabel">Telefone</span>
               <span class="contactValue">+258 82 120 8151</span>
+              <span class="contactCta">Ligar agora</span>
             </div>
             <i class="fi fi-rs-angle-right contactArrow" />
-          </div>
+          </a>
         </div>
       </div>
     </section>
@@ -586,6 +521,20 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
         </div>
       </div>
     </footer>
+
+    <!-- WHATSAPP FLUTUANTE -->
+    <a
+      class="waFab"
+      :href="whatsappUrl"
+      target="_blank"
+      rel="noopener"
+      aria-label="Fale connosco no WhatsApp"
+    >
+      <span class="waFabLabel">Dúvidas? Fale connosco</span>
+      <span class="waFabBtn">
+        <img :src="whatsappIcon" alt="" />
+      </span>
+    </a>
   </div>
 </template>
 
@@ -859,21 +808,55 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
 .trustInner {
   max-width: 520px;
   margin: 0 auto;
-  display: flex;
-  justify-content: space-around;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
 }
 
 .trustItem {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 16px 8px;
+  background: #fff;
+  border: 1px solid #f0e8ed;
+  border-radius: 14px;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.trustItem:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(146, 40, 119, 0.1);
+}
+
+.trustIconWrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(146, 40, 119, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trustIconWrap.brand {
+  background: rgba(37, 211, 102, 0.1);
+}
+
+.trustImg {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
 }
 
 .trustIcon {
-  font-size: 22px;
+  font-size: 20px;
   color: #922877;
+  position: relative;
+  top: 2px;
 }
 
 .trustLabel {
@@ -881,6 +864,12 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
   color: #888;
   text-align: center;
   line-height: 1.4;
+}
+
+.trustLabel strong {
+  display: block;
+  color: #0d0d2b;
+  font-weight: 700;
 }
 
 /* ── SECTION COMMONS ── */
@@ -973,6 +962,26 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* O bilhete usa um gradiente azul→roxo; o fundo acompanha-o */
+.stepIconWrap.ticket {
+  background: linear-gradient(
+    135deg,
+    rgba(125, 196, 255, 0.18),
+    rgba(196, 120, 240, 0.2)
+  );
+}
+
+.stepImg {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.step:hover .stepImg {
+  transform: rotate(-12deg) scale(1.12);
 }
 
 .stepIcon {
@@ -1262,46 +1271,102 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
 }
 
 .contactCard {
+  position: relative;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  padding: 16px 20px;
+  border-radius: 16px;
+  padding: 18px 20px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   cursor: pointer;
-  transition: background 0.15s;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    background 0.2s,
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
-.contactCard:hover {
+.contactCard:hover,
+.contactCard:focus-visible {
   background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(13, 13, 43, 0.25);
 }
 
+.contactCard:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+/* Ícone solto, sem fundo: só um brilho suave por trás que acende no hover */
 .contactIconWrap {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
+  position: relative;
+  width: 52px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.contactIconWrap.whatsapp {
-  background: #25d366;
+.contactIconWrap::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.35) 0%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
 }
-.contactIconWrap.email {
-  background: rgba(255, 255, 255, 0.2);
+
+.contactCard:hover .contactIconWrap::before {
+  opacity: 1;
+  transform: scale(1);
 }
-.contactIconWrap.phone {
-  background: rgba(255, 255, 255, 0.2);
+
+.contactImg,
+.contactIcon {
+  position: relative;
+  filter: drop-shadow(0 6px 10px rgba(13, 13, 43, 0.35));
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.contactImg {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
 }
 
 .contactIcon {
-  font-size: 18px;
+  font-size: 34px;
   color: #fff;
-  position: relative;
-  top: 1px;
+  top: 3px;
+}
+
+.contactCard:hover .contactImg,
+.contactCard:hover .contactIcon {
+  transform: translateY(-4px) rotate(-10deg) scale(1.12);
+}
+
+.contactCta {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.2s;
+}
+
+.contactCard:hover .contactCta {
+  color: #fff;
 }
 
 .contactText {
@@ -1383,6 +1448,89 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
 .footerCopy {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.3);
+}
+
+/* ── WHATSAPP FLUTUANTE ── */
+.waFab {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.waFabBtn {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.waFabBtn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid #25d366;
+  animation: fabRing 2.4s ease-out infinite;
+}
+
+.waFabBtn img {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  filter: drop-shadow(0 8px 14px rgba(13, 13, 43, 0.3));
+}
+
+.waFab:hover .waFabBtn {
+  transform: rotate(-10deg) scale(1.1);
+}
+
+.waFabLabel {
+  display: none;
+  background: #0d0d2b;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 50px;
+  box-shadow: 0 6px 16px rgba(13, 13, 43, 0.2);
+  opacity: 0;
+  transform: translateX(8px);
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
+}
+
+.waFab:hover .waFabLabel,
+.waFab:focus-visible .waFabLabel {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@keyframes fabRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  70%,
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .waFabBtn::before {
+    animation: none;
+  }
 }
 
 /* ── TRANSITIONS ── */
@@ -1545,6 +1693,14 @@ onUnmounted(() => document.removeEventListener('click', closeAll))
 
   .featuresInner {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  .waFab {
+    right: 28px;
+    bottom: 28px;
+  }
+  .waFabLabel {
+    display: block;
   }
 
   .stopName {
